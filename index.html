@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AUTY Decorating Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              auty: {
+                ink: "#182230",
+                navy: "#223047",
+                gold: "#C8922C",
+                cream: "#F7F2E9",
+                paper: "#FFFCF6",
+                line: "#E6DDCF",
+                green: "#2F7D59",
+                amber: "#C98517",
+                red: "#B33A3A"
+              }
+            }
+          }
+        }
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@18.3.1",
+          "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+          "lucide-react": "https://esm.sh/lucide-react@0.468.0?external=react"
+        }
+      }
+    </script>
+  </head>
+  <body class="bg-auty-cream text-auty-ink">
+    <div id="root"></div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
