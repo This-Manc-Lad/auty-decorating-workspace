@@ -26,10 +26,10 @@ This workspace was also built to run directly from `index.html` using CDN import
 ## What Is Included
 
 - Regenerated dashboard with fast-start client and quote creation.
-- Dashboard with key job, quote, invoice, deposit and blocked-date cards.
-- Client database with broad search and editable client profiles.
-- Room-by-room AUTY Job Quoter with 0.5 day increments, day-rate pricing, materials, editable generated descriptions and price overrides.
-- Completing or adding a room saves it and clears the form ready for the next room.
+- Dashboard with compact stats, richer visuals, and quick-start actions.
+- Client database with surname-first expandable client cards and direct action links.
+- Room-by-room Room Quoter with button-led controls, generated descriptions, room deletion, and clearer pricing blocks.
+- Completing a room still saves it and clears the form ready for the next room.
 - Quotation overview with discount, VAT, deposit and remainder calculations.
 - Quote PDF generation with AUTY branding, room breakdown, totals, VAT and acceptance section.
 - Final invoice generation from a quote with editable due date, deposit paid and invoice status.
