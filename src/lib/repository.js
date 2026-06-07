@@ -17,17 +17,39 @@ async function requireClient() {
   return supabase;
 }
 
+function camelCaseFromSnake(value) {
+  return value.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
+}
+
+function stripTransientPayloadFields(key, item) {
+  const payload = { ...(item || {}) };
+
+  // Signed URLs expire. Store the durable storage path only and rehydrate the URL when data loads.
+  if (key === "photos" && payload.storagePath) {
+    delete payload.imageUrl;
+  }
+
+  return payload;
+}
+
+function settingsPayload(settings) {
+  const payload = { ...(settings || {}) };
+
+  // Logo signed URLs also expire, so only the storage path should be persisted in cloud mode.
+  if (payload.logoPath) {
+    delete payload.logoUrl;
+  }
+
+  return payload;
+}
+
 function rowPayload(key, idField, item, userId) {
   return {
     user_id: userId,
     [idField]: item[idField] || item[camelCaseFromSnake(idField)] || item.id || uid(key),
-    payload: item,
+    payload: stripTransientPayloadFields(key, item),
     updated_at: new Date().toISOString()
   };
-}
-
-function camelCaseFromSnake(value) {
-  return value.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
 }
 
 async function signedUrlFor(path) {
@@ -41,7 +63,9 @@ async function signedUrlFor(path) {
 async function hydratePhotos(photos) {
   return Promise.all((photos || []).map(async (photo) => ({
     ...photo,
-    imageUrl: photo.imageUrl || (photo.storagePath ? await signedUrlFor(photo.storagePath) : "")
+    imageUrl: photo.storagePath
+      ? await signedUrlFor(photo.storagePath).catch(() => photo.imageUrl || "")
+      : photo.imageUrl || photo.imageData || ""
   })));
 }
 
@@ -49,7 +73,7 @@ async function hydrateSettings(settings) {
   if (!settings?.logoPath) return settings;
   return {
     ...settings,
-    logoUrl: settings.logoUrl || await signedUrlFor(settings.logoPath)
+    logoUrl: await signedUrlFor(settings.logoPath).catch(() => settings.logoUrl || "")
   };
 }
 
@@ -95,19 +119,37 @@ export async function deleteEntity(key, idValue, userId) {
   const supabase = await requireClient();
   const config = TABLES[key];
   if (!config) throw new Error(`Unknown entity ${key}`);
+
+  let storagePath = "";
+  if (key === "photos") {
+    const { data, error } = await supabase
+      .from(config.table)
+      .select("payload")
+      .eq(config.idField, idValue)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error && error.code !== "PGRST116") throw error;
+    storagePath = data?.payload?.storagePath || "";
+  }
+
   const { error } = await supabase
     .from(config.table)
     .delete()
     .eq(config.idField, idValue)
     .eq("user_id", userId);
   if (error) throw error;
+
+  if (storagePath) {
+    const { error: storageError } = await supabase.storage.from(PHOTO_BUCKET).remove([storagePath]);
+    if (storageError) console.warn("Photo record deleted, but storage cleanup failed:", storageError.message);
+  }
 }
 
 export async function upsertSettings(settings, userId) {
   const supabase = await requireClient();
   const { error } = await supabase.from("workspace_settings").upsert({
     user_id: userId,
-    payload: settings,
+    payload: settingsPayload(settings),
     updated_at: new Date().toISOString()
   });
   if (error) throw error;
@@ -136,12 +178,13 @@ export async function replaceWorkspaceData(data, userId) {
 export async function uploadPhoto(file, meta, userId) {
   const supabase = await requireClient();
   const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const storagePath = `${userId}/${PHOTO_BUCKET_FOLDER}/${meta.quoteId}/${uid("photo")}.${extension}`;
+  const photoId = uid("photo");
+  const storagePath = `${userId}/${PHOTO_BUCKET_FOLDER}/${meta.quoteId}/${photoId}.${extension}`;
   const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(storagePath, file, { upsert: true });
   if (error) throw error;
   const imageUrl = await signedUrlFor(storagePath);
   return {
-    photoId: uid("photo"),
+    photoId,
     clientId: meta.clientId,
     quoteId: meta.quoteId,
     roomId: meta.roomId,
@@ -194,4 +237,3 @@ export async function onAuthStateChange(callback) {
   const supabase = await requireClient();
   return supabase.auth.onAuthStateChange((_event, session) => callback(session));
 }
-
