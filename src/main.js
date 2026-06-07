@@ -109,6 +109,13 @@ const ROOM_ICONS = {
   Other: Briefcase
 };
 
+const DEFAULT_LOGO_LIGHT = "./branding/auty-logo-light.jpg";
+const DEFAULT_LOGO_DARK = "./branding/auty-logo-dark.jpg";
+
+function resolveBrandLogo(settings, darkMode) {
+  return settings?.logoUrl || (darkMode ? DEFAULT_LOGO_DARK : DEFAULT_LOGO_LIGHT);
+}
+
 function App() {
   const [notice, setNotice] = useState("");
   const [activeTab, setActiveTab] = useState(MAIN_TABS[0]);
@@ -121,6 +128,7 @@ function App() {
   const workspace = useWorkspaceStore(setNotice);
   const { data, mode, session, authReady, syncLabel, isCloud, actions } = workspace;
   const darkMode = data.settings?.themeMode === "Dark";
+  const brandLogo = resolveBrandLogo(data.settings, darkMode);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event) => {
@@ -275,6 +283,7 @@ function App() {
   if (mode === "auth") {
     return h(AuthScreen, {
       darkMode,
+      brandLogo,
       setNotice,
       onSignIn: actions.signIn,
       onSignUp: actions.signUp
@@ -284,28 +293,38 @@ function App() {
   return h("div", { className: classNames(
     "min-h-screen pb-28 transition-colors duration-500",
     darkMode
-      ? "bg-[radial-gradient(circle_at_top_left,_rgba(240,181,82,0.16),_transparent_24%),radial-gradient(circle_at_20%_70%,_rgba(71,187,255,0.18),_transparent_26%),radial-gradient(circle_at_top_right,_rgba(187,131,255,0.16),_transparent_26%),linear-gradient(180deg,_#09111f_0%,_#101a2d_52%,_#141e32_100%)] text-slate-100"
-      : "bg-[radial-gradient(circle_at_top_left,_rgba(255,207,138,0.34),_transparent_26%),radial-gradient(circle_at_20%_75%,_rgba(105,201,255,0.18),_transparent_24%),radial-gradient(circle_at_top_right,_rgba(232,141,255,0.18),_transparent_25%),linear-gradient(180deg,_#fbf5ec_0%,_#f7fbff_55%,_#fff6ef_100%)] text-auty-ink"
+      ? "bg-[radial-gradient(circle_at_top_left,_rgba(0,184,198,0.18),_transparent_24%),radial-gradient(circle_at_80%_14%,_rgba(212,175,55,0.16),_transparent_24%),radial-gradient(circle_at_24%_78%,_rgba(192,198,204,0.1),_transparent_26%),linear-gradient(180deg,_#060a14_0%,_#0a0f1f_46%,_#151920_100%)] text-slate-100"
+      : "bg-[radial-gradient(circle_at_top_left,_rgba(212,175,55,0.18),_transparent_24%),radial-gradient(circle_at_82%_16%,_rgba(0,184,198,0.14),_transparent_23%),radial-gradient(circle_at_18%_82%,_rgba(192,198,204,0.18),_transparent_24%),linear-gradient(180deg,_#fcfaf6_0%,_#f5f9fb_55%,_#f8f1e6_100%)] text-auty-ink"
   ) },
     h("div", { className: "mx-auto flex min-h-screen max-w-7xl flex-col px-4 pb-8 pt-4 sm:px-6" },
       h("header", { className: classNames(
-        "sticky top-0 z-30 mb-5 rounded-[28px] px-4 py-4 shadow-[0_20px_50px_rgba(24,34,48,0.1),0_0_60px_rgba(240,181,82,0.12),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl transition-colors duration-500",
-        darkMode ? "border border-white/10 bg-[linear-gradient(135deg,rgba(15,23,42,0.72),rgba(30,41,59,0.46))]" : "border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.46))]"
+        "sticky top-0 z-30 mb-5 rounded-[28px] px-4 py-4 shadow-[0_24px_60px_rgba(10,15,31,0.16),0_0_80px_rgba(0,184,198,0.1),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl transition-colors duration-500",
+        darkMode ? "border border-white/10 bg-[linear-gradient(135deg,rgba(10,15,31,0.76),rgba(27,30,36,0.58))]" : "border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.8),rgba(255,255,255,0.54))]"
       ) },
         h("div", { className: "flex items-center justify-between gap-4" },
-          h("div", null,
+          h("div", { className: "flex min-w-0 items-center gap-3" },
+            h("img", {
+              src: brandLogo,
+              alt: "AUTY Decorating logo",
+              className: classNames(
+                "h-12 w-12 shrink-0 rounded-2xl object-cover shadow-[0_10px_28px_rgba(10,15,31,0.22)] ring-1",
+                darkMode ? "bg-white/6 ring-white/10" : "bg-white ring-slate-200/70"
+              )
+            }),
+            h("div", { className: "min-w-0" },
             h("div", { className: "flex flex-wrap items-center gap-2" },
               h("p", { className: "text-[11px] font-bold uppercase tracking-[0.28em] text-auty-gold" }, "Auty Decorating Workspace App"),
               h(StatusPill, { label: syncLabel, darkMode, cloud: isCloud })
             ),
             h("h1", { className: classNames("mt-1 text-2xl font-black tracking-tight", darkMode ? "text-white" : "text-slate-900") }, activeTab === "Current Job" ? jobTab : activeTab),
-            h("p", { className: classNames("mt-1 text-xs", darkMode ? "text-white/65" : "text-slate-500") }, session?.user?.email || (!isCloud ? "Preview mode: Supabase not configured" : ""))
+            h("p", { className: classNames("mt-1 truncate text-xs", darkMode ? "text-white/65" : "text-slate-500") }, session?.user?.email || (!isCloud ? "Preview mode: Supabase not configured" : ""))
+            )
           ),
           h("button", {
             onClick: () => setShowSettings(true),
             className: classNames(
               "grid h-12 w-12 place-items-center rounded-2xl text-white transition duration-300 hover:-translate-y-0.5",
-              darkMode ? "bg-white/10 shadow-[0_0_28px_rgba(96,165,250,0.22)] hover:bg-white/16" : "bg-slate-900 shadow-[0_0_28px_rgba(240,181,82,0.2)] hover:bg-slate-800"
+              darkMode ? "bg-white/10 shadow-[0_0_28px_rgba(0,184,198,0.2)] hover:bg-white/16" : "bg-auty-navy shadow-[0_0_28px_rgba(212,175,55,0.18)] hover:bg-[#13192d]"
             )
           }, h(SettingsIcon, { size: 20 }))
         )
@@ -545,13 +564,15 @@ function useWorkspaceStore(setNotice) {
   };
 
   const signIn = async ({ email, password }) => {
-    await signInWithPassword(email, password);
+    const result = await signInWithPassword(email, password);
     setNotice("Signed in");
+    return result;
   };
 
   const signUp = async ({ email, password }) => {
-    await signUpWithPassword(email, password);
+    const result = await signUpWithPassword(email, password);
     setNotice("Account created. Check your email if confirmation is enabled.");
+    return result;
   };
 
   const signOutUser = async () => {
@@ -581,11 +602,12 @@ function useWorkspaceStore(setNotice) {
   };
 }
 
-function AuthScreen({ darkMode, setNotice, onSignIn, onSignUp }) {
+function AuthScreen({ darkMode, brandLogo, setNotice, onSignIn, onSignUp }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState("signin");
   const [submitting, setSubmitting] = useState(false);
+  const [authFeedback, setAuthFeedback] = useState("");
 
   const submit = async () => {
     if (!email || !password) {
@@ -594,9 +616,21 @@ function AuthScreen({ darkMode, setNotice, onSignIn, onSignUp }) {
     }
     try {
       setSubmitting(true);
-      if (mode === "signin") await onSignIn({ email, password });
-      else await onSignUp({ email, password });
+      setAuthFeedback("");
+      if (mode === "signin") {
+        await onSignIn({ email, password });
+        setAuthFeedback("Signed in. Your workspace should load in a moment.");
+      } else {
+        const result = await onSignUp({ email, password });
+        const needsEmailConfirmation = !result?.session;
+        setAuthFeedback(
+          needsEmailConfirmation
+            ? "Account created. Check your email for a confirmation link before trying to sign in."
+            : "Account created and signed in. Your workspace should load in a moment."
+        );
+      }
     } catch (error) {
+      setAuthFeedback("");
       setNotice(error.message || "Authentication failed");
     } finally {
       setSubmitting(false);
@@ -606,26 +640,49 @@ function AuthScreen({ darkMode, setNotice, onSignIn, onSignUp }) {
   return h("div", { className: classNames(
     "min-h-screen px-4 py-8",
     darkMode
-      ? "bg-[linear-gradient(180deg,#09111f_0%,_#101a2d_100%)] text-white"
-      : "bg-[linear-gradient(180deg,#fbf5ec_0%,_#f7fbff_100%)] text-auty-ink"
+      ? "bg-[radial-gradient(circle_at_top_left,_rgba(0,184,198,0.12),_transparent_24%),radial-gradient(circle_at_82%_16%,_rgba(212,175,55,0.12),_transparent_22%),linear-gradient(180deg,#060a14_0%,#0a0f1f_100%)] text-white"
+      : "bg-[radial-gradient(circle_at_top_left,_rgba(212,175,55,0.16),_transparent_24%),radial-gradient(circle_at_84%_18%,_rgba(0,184,198,0.12),_transparent_22%),linear-gradient(180deg,#fcfaf6_0%,#f5f9fb_100%)] text-auty-ink"
   ) },
-    h("div", { className: "mx-auto max-w-md rounded-[32px] border border-white/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.58))] p-6 shadow-[0_24px_60px_rgba(24,34,48,0.14)] backdrop-blur-2xl" },
+    h("div", { className: classNames(
+      "mx-auto max-w-md rounded-[32px] p-6 shadow-[0_24px_60px_rgba(24,34,48,0.18),0_0_60px_rgba(0,184,198,0.08)] backdrop-blur-2xl",
+      darkMode ? "border border-white/10 bg-[linear-gradient(135deg,rgba(10,15,31,0.82),rgba(27,30,36,0.7))]" : "border border-white/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.84),rgba(255,255,255,0.58))]"
+    ) },
+      h("img", { src: brandLogo, alt: "AUTY Decorating logo", className: "mx-auto h-24 rounded-[24px] object-cover shadow-[0_16px_40px_rgba(10,15,31,0.2)]" }),
       h("p", { className: "text-[11px] font-bold uppercase tracking-[0.28em] text-auty-gold" }, "AUTY Decorating Workspace"),
-      h("h1", { className: "mt-2 text-3xl font-black text-slate-900" }, "Sign in to your workspace"),
-      h("p", { className: "mt-2 text-sm text-slate-500" }, "Supabase authentication is now the main data path for production use. Each decorator gets their own cloud-synced workspace."),
+      h("h1", { className: classNames("mt-2 text-3xl font-black", darkMode ? "text-white" : "text-slate-900") }, "Sign in to your workspace"),
+      h("p", { className: classNames("mt-2 text-sm", darkMode ? "text-white/70" : "text-slate-500") }, "Supabase authentication is now the main data path for production use. Each decorator gets their own cloud-synced workspace."),
+      h("div", { className: classNames(
+        "mt-4 rounded-[22px] px-4 py-3 text-sm",
+        darkMode ? "border border-amber-300/20 bg-amber-400/10 text-amber-100" : "border border-amber-200 bg-amber-50 text-amber-900"
+      ) },
+        h("p", { className: "font-black" }, mode === "signin" ? "Signing in" : "Creating your account"),
+        h("p", { className: "mt-1" }, mode === "signin"
+          ? "Use the email and password you signed up with."
+          : "After you press sign up, Supabase may send a confirmation email. If it does, open that email and tap the confirmation link before signing in.")
+      ),
       h("div", { className: "mt-5 grid gap-4" },
         h(Field, { label: "Email", value: email, onChange: setEmail }),
         h(Field, { label: "Password", value: password, type: "password", onChange: setPassword }),
         h("div", { className: "grid grid-cols-2 gap-2" },
-          h(ActionButton, { label: mode === "signin" ? "Sign In" : "Create Account", onClick: submit, icon: Lock, className: "w-full" }),
+          h(ActionButton, { label: submitting ? "Please wait..." : mode === "signin" ? "Sign In" : "Create Account", onClick: submit, icon: Lock, className: "w-full" }),
           h(ActionButton, {
             label: mode === "signin" ? "Switch to Sign Up" : "Switch to Sign In",
-            onClick: () => setMode(mode === "signin" ? "signup" : "signin"),
+            onClick: () => {
+              setMode(mode === "signin" ? "signup" : "signin");
+              setAuthFeedback("");
+            },
             variant: "soft",
             className: "w-full"
           })
         ),
-        submitting && h("p", { className: "text-sm text-slate-500" }, "Working...")
+        authFeedback && h("div", { className: classNames(
+          "rounded-[22px] px-4 py-3 text-sm",
+          darkMode ? "border border-emerald-300/20 bg-emerald-400/10 text-emerald-100" : "border border-emerald-200 bg-emerald-50 text-emerald-900"
+        ) },
+          h("p", { className: "font-black" }, "What happens next"),
+          h("p", { className: "mt-1" }, authFeedback)
+        ),
+        submitting && h("p", { className: classNames("text-sm", darkMode ? "text-white/60" : "text-slate-500") }, "Working...")
       )
     )
   );
@@ -675,8 +732,8 @@ function FloatingNav({ activeTab, setActiveTab, darkMode }) {
     { label: "Current Job", icon: Home }
   ];
   return h("nav", { className: classNames(
-    "fixed bottom-4 left-1/2 z-40 w-[min(92vw,520px)] -translate-x-1/2 rounded-[28px] border p-2 shadow-[0_20px_60px_rgba(15,23,42,0.45),0_0_40px_rgba(240,181,82,0.14)] backdrop-blur-xl transition-colors duration-500",
-    darkMode ? "border-white/10 bg-slate-950/70" : "border-white/60 bg-slate-950/92"
+    "fixed bottom-4 left-1/2 z-40 w-[min(92vw,520px)] -translate-x-1/2 rounded-[28px] border p-2 shadow-[0_20px_60px_rgba(10,15,31,0.45),0_0_40px_rgba(0,184,198,0.12)] backdrop-blur-xl transition-colors duration-500",
+    darkMode ? "border-white/10 bg-[rgba(10,15,31,0.72)]" : "border-white/60 bg-[rgba(255,255,255,0.78)]"
   ) },
     h("div", { className: "grid grid-cols-4 gap-2" },
       items.map((item) => {
@@ -687,7 +744,13 @@ function FloatingNav({ activeTab, setActiveTab, darkMode }) {
           onClick: () => setActiveTab(item.label),
           className: classNames(
             "flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-[22px] text-[11px] font-bold transition duration-300",
-            active ? "bg-[linear-gradient(135deg,#f0b552,#df7a44)] text-white shadow-lg" : "text-white/72 hover:bg-white/10 hover:text-white"
+            active
+              ? darkMode
+                ? "bg-[linear-gradient(135deg,#00b8c6,#0f7e9c)] text-white shadow-[0_0_26px_rgba(0,184,198,0.3)]"
+                : "bg-[linear-gradient(135deg,#d4af37,#00b8c6)] text-slate-950 shadow-[0_0_26px_rgba(212,175,55,0.24)]"
+              : darkMode
+                ? "text-white/72 hover:bg-white/10 hover:text-white"
+                : "text-slate-600 hover:bg-white/65 hover:text-slate-900"
           )
         }, h(Icon, { size: 20 }), item.label);
       })
@@ -711,15 +774,15 @@ function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTa
 
   return h("div", { className: "space-y-5" },
     h("section", { className: "grid gap-4 lg:grid-cols-[1.3fr_0.7fr]" },
-      h("div", { className: "overflow-hidden rounded-[32px] border border-white/55 bg-[linear-gradient(135deg,rgba(34,48,71,0.82),rgba(111,168,220,0.48),rgba(233,184,92,0.38))] p-5 text-white shadow-[0_28px_70px_rgba(24,34,48,0.22),inset_0_1px_0_rgba(255,255,255,0.26)] backdrop-blur-2xl" },
+      h("div", { className: "overflow-hidden rounded-[32px] border border-white/55 bg-[linear-gradient(135deg,rgba(10,15,31,0.88),rgba(0,184,198,0.34),rgba(212,175,55,0.24))] p-4 text-white shadow-[0_28px_70px_rgba(10,15,31,0.24),0_0_55px_rgba(0,184,198,0.1),inset_0_1px_0_rgba(255,255,255,0.24)] backdrop-blur-2xl" },
         h("p", { className: "text-[11px] font-bold uppercase tracking-[0.3em] text-amber-300" }, "Today"),
-        h("h2", { className: "mt-2 max-w-xl text-3xl font-black leading-tight" }, "Keep jobs moving, quotes clear, and payment follow-up tidy."),
+        h("h2", { className: "mt-2 max-w-xl text-[1.95rem] font-black leading-tight sm:text-[2.15rem]" }, "Keep jobs moving, quotes clear, and payment follow-up tidy."),
         h("p", { className: "mt-3 max-w-2xl text-sm text-white/72" }, "Dashboard, Calendar, Client Database and Current Job still work the same way, now with a cloud-ready data path underneath."),
-        h("div", { className: "mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" },
-          h(QuickAction, { label: "New Client", onClick: () => { createClient(); setActiveTab("Client Database"); }, icon: UserPlus, tone: "from-white to-amber-50 text-slate-900" }),
-          h(QuickAction, { label: "New Quote", onClick: () => { createQuote(); setActiveTab("Current Job"); setJobTab("Room Quoter"); }, icon: ClipboardList, tone: "from-amber-400 to-orange-500 text-white" }),
-          h(QuickAction, { label: "Open Calendar", onClick: () => setActiveTab("Calendar"), icon: CalendarDays, tone: "from-sky-400 to-blue-500 text-white" }),
-          h(QuickAction, { label: "Invoices", onClick: () => { setActiveTab("Current Job"); setJobTab("Invoice Generator"); }, icon: Wallet, tone: "from-emerald-400 to-lime-500 text-slate-900" })
+        h("div", { className: "mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4" },
+          h(QuickAction, { label: "New Client", onClick: () => { createClient(); setActiveTab("Client Database"); }, icon: UserPlus, tone: "from-white/92 to-slate-100/88 text-slate-900 ring-1 ring-white/70" }),
+          h(QuickAction, { label: "New Quote", onClick: () => { createQuote(); setActiveTab("Current Job"); setJobTab("Room Quoter"); }, icon: ClipboardList, tone: "from-[#d4af37] to-[#b9801f] text-slate-950" }),
+          h(QuickAction, { label: "Calendar", onClick: () => setActiveTab("Calendar"), icon: CalendarDays, tone: "from-[#00b8c6] to-[#0f7e9c] text-white" }),
+          h(QuickAction, { label: "Invoices", onClick: () => { setActiveTab("Current Job"); setJobTab("Invoice Generator"); }, icon: Wallet, tone: "from-[#7fd7de] to-[#36c789] text-slate-950" })
         )
       ),
       h("div", { className: "grid gap-3 sm:grid-cols-2 lg:grid-cols-1" },
@@ -1656,11 +1719,17 @@ function SettingsPanel({ data, update, setShowSettings, setNotice, installToHome
         h("div", { className: "lg:col-span-2" }, h(Field, { label: "Acceptance Notes", value: settings.acceptanceNotes, textarea: true, onChange: (value) => patch("acceptanceNotes", value) })),
         h(Field, { label: "Calendar Sync Provider", value: settings.calendarSyncProvider || "", options: ["", "Google Calendar", "Apple Calendar"], onChange: (value) => patch("calendarSyncProvider", value) }),
         h(Field, { label: "Calendar Sync Ready", value: settings.calendarSyncEnabled ? "Yes" : "No", options: ["Yes", "No"], onChange: (value) => patch("calendarSyncEnabled", value === "Yes") }),
-        h("div", { className: "lg:col-span-2 rounded-[24px] border border-slate-200 bg-[linear-gradient(135deg,#fff8ee,#f5faff)] p-4" },
-          h("p", { className: "text-sm font-black text-slate-900" }, "Business Logo"),
-          h("p", { className: "mt-1 text-sm text-slate-500" }, "Used in quotation and invoice PDFs."),
-          settings.logoUrl && h("img", { src: settings.logoUrl, alt: "Business logo", className: "mt-3 h-20 rounded-2xl bg-white p-2 shadow-sm" }),
-          h("label", { className: "mt-4 inline-flex min-h-[52px] cursor-pointer items-center gap-2 rounded-[20px] bg-slate-900 px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-slate-800" },
+        h("div", { className: classNames(
+          "lg:col-span-2 rounded-[24px] p-4",
+          darkMode ? "border border-white/10 bg-[linear-gradient(135deg,rgba(10,15,31,0.86),rgba(0,184,198,0.12))]" : "border border-slate-200 bg-[linear-gradient(135deg,#fff8ee,#f5faff)]"
+        ) },
+          h("p", { className: classNames("text-sm font-black", darkMode ? "text-white" : "text-slate-900") }, "Business Logo"),
+          h("p", { className: classNames("mt-1 text-sm", darkMode ? "text-white/65" : "text-slate-500") }, "Used in quotation and invoice PDFs."),
+          h("img", { src: resolveBrandLogo(settings, darkMode), alt: "Business logo", className: "mt-3 h-20 rounded-2xl bg-white p-2 shadow-sm" }),
+          h("label", { className: classNames(
+            "mt-4 inline-flex min-h-[52px] cursor-pointer items-center gap-2 rounded-[20px] px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5",
+            darkMode ? "bg-[linear-gradient(135deg,#00b8c6,#0f7e9c)] hover:brightness-110" : "bg-auty-navy hover:bg-[#13192d]"
+          ) },
             h(ImagePlus, { size: 18 }),
             "Upload Logo",
             h("input", { type: "file", accept: "image/*", className: "hidden", onChange: (event) => uploadLogoFile(event.target.files?.[0]) })
@@ -1684,8 +1753,8 @@ function SettingsPanel({ data, update, setShowSettings, setNotice, installToHome
 function QuickAction({ label, onClick, icon: Icon, tone }) {
   return h("button", {
     onClick,
-    className: classNames("rounded-[22px] bg-gradient-to-br p-4 text-left font-black transition duration-300 hover:-translate-y-1 hover:shadow-xl", tone)
-  }, h(Icon, { size: 20 }), h("p", { className: "mt-4 text-sm" }, label));
+    className: classNames("rounded-[20px] bg-gradient-to-br px-3.5 py-3 text-left font-black transition duration-300 hover:-translate-y-1 hover:shadow-xl", tone)
+  }, h(Icon, { size: 18 }), h("p", { className: "mt-3 text-[13px] leading-tight" }, label));
 }
 
 function Field({ label, value, onChange, type = "text", options, textarea }) {
@@ -1705,8 +1774,8 @@ function ActionButton({ label, onClick, icon: Icon, variant = "primary", classNa
   const styles = variant === "danger"
     ? "bg-[linear-gradient(135deg,#d95454,#b6304a)] text-white"
     : variant === "soft"
-      ? "bg-[linear-gradient(135deg,rgba(238,244,255,0.92),rgba(247,249,255,0.8))] text-slate-900 shadow-[0_0_22px_rgba(96,165,250,0.12)]"
-      : "bg-[linear-gradient(135deg,#f0b552,#df7a44)] text-white shadow-[0_0_26px_rgba(240,181,82,0.22)]";
+      ? "bg-[linear-gradient(135deg,rgba(238,247,248,0.94),rgba(247,249,255,0.86))] text-slate-900 shadow-[0_0_22px_rgba(0,184,198,0.12)]"
+      : "bg-[linear-gradient(135deg,#d4af37,#00b8c6)] text-slate-950 shadow-[0_0_26px_rgba(0,184,198,0.18)]";
   return h("button", {
     onClick,
     className: classNames("inline-flex min-h-[52px] items-center justify-center gap-2 rounded-[20px] px-5 py-3 text-sm font-black transition duration-300 hover:-translate-y-0.5 hover:shadow-lg", styles, className)

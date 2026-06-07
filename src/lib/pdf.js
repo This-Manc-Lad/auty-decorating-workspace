@@ -1,5 +1,7 @@
 import { calculateQuote, displayName, money, shortDate } from "./utils.js";
 
+const DEFAULT_PDF_LOGO = "./branding/auty-logo-light.jpg";
+
 async function toDataUrl(url) {
   if (!url) return "";
   const response = await fetch(url);
@@ -25,7 +27,7 @@ export async function generateWorkspacePdf({ kind, quote, invoice, data }) {
   const usableWidth = pageWidth - margin * 2;
   let y = 18;
 
-  const logoDataUrl = data.settings.logoUrl ? await toDataUrl(data.settings.logoUrl).catch(() => "") : "";
+  const logoDataUrl = await toDataUrl(data.settings.logoUrl || DEFAULT_PDF_LOGO).catch(() => "");
 
   const ensureSpace = (height) => {
     if (y + height < pageHeight - 16) return;
@@ -189,4 +191,3 @@ export async function generateWorkspacePdf({ kind, quote, invoice, data }) {
 
   doc.save(kind === "quote" ? `${quote.quoteReference}.pdf` : `${invoice.invoiceReference}.pdf`);
 }
-
