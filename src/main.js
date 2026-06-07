@@ -5,21 +5,16 @@ import {
   BedDouble,
   Briefcase,
   CalendarDays,
-  Camera,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  Clock3,
   Download,
   FileText,
   Home,
-  ImagePlus,
   Mail,
   MapPinned,
-  Paintbrush2,
   Phone,
-  PoundSterling,
   Save,
   Search,
   Settings as SettingsIcon,
@@ -31,343 +26,101 @@ import {
   Users,
   Utensils,
   Wallet,
-  X
+  X,
+  Cloud,
+  Lock,
+  LogOut,
+  ShieldCheck,
+  ImagePlus
 } from "lucide-react";
+import {
+  ADJUSTMENT_OPTIONS,
+  CALENDAR_TYPES,
+  DAY_RATE,
+  JOB_TABS,
+  JOB_TYPE_OPTIONS,
+  MAIN_TABS,
+  MATERIAL_SUPPLIERS,
+  OTHER_FEATURE_KEYS,
+  OTHER_ROOM_OPTIONS,
+  PHOTO_TYPES,
+  QUOTE_STATUSES,
+  ROOM_PRESETS,
+  STORAGE_KEY,
+  TIME_OPTIONS,
+  TOGGLE_THREE,
+  initialState
+} from "./lib/constants.js";
+import {
+  addDays,
+  adjustmentLabel,
+  buildBackupPayload,
+  calculateQuote,
+  calendarColour,
+  calendarTint,
+  classNames,
+  createRoomDraft,
+  databaseName,
+  displayName,
+  generatedRoomDescription,
+  loadLegacyWorkspace,
+  money,
+  monthNames,
+  monthStamp,
+  nextReference,
+  normaliseState,
+  parseBackupPayload,
+  roomAutoPrice,
+  roomNameFromDraft,
+  shortDate,
+  slug,
+  splitName,
+  today,
+  uid,
+  updateLinkedCollections
+} from "./lib/utils.js";
+import {
+  deleteEntity,
+  fetchWorkspaceData,
+  getSession,
+  onAuthStateChange,
+  replaceWorkspaceData,
+  signInWithPassword,
+  signOut,
+  signUpWithPassword,
+  upsertEntity,
+  upsertSettings,
+  uploadLogo,
+  uploadPhoto
+} from "./lib/repository.js";
+import { isSupabaseConfigured } from "./lib/supabase.js";
+import { generateWorkspacePdf } from "./lib/pdf.js";
+import { formatErrors, validateClient, validateInvoice, validatePhotoUpload, validateQuote, validateRoom } from "./lib/validation.js";
 
 const h = React.createElement;
-const STORAGE_KEY = "auty-decorating-mvp-v2";
-const LEGACY_KEYS = ["auty-decorating-mvp-v1"];
-const DAY_RATE = 150;
-const VAT_RATE = 20;
 
-const MAIN_TABS = ["Dashboard", "Calendar", "Client Database", "Current Job"];
-const JOB_TABS = ["Room Quoter", "Job Overview", "Invoice Generator", "Photos & Attachments"];
-const QUOTE_STATUSES = ["Draft", "Sent", "Awaiting Approval", "Accepted", "In Progress", "Complete", "Invoice Due", "Paid"];
-const CALENDAR_TYPES = ["Personal Time", "Potential Job (Unconfirmed)", "Other Work", "Booked Job", "Quote Visit", "Invoice Due", "Other"];
-const PHOTO_TYPES = ["Before", "During", "After", "Damage", "Materials", "Other"];
-const ROOM_PRESETS = [
-  { key: "Living Room", label: "Living", icon: Sofa },
-  { key: "Dining Room", label: "Dining", icon: Utensils },
-  { key: "Kitchen", label: "Kitchen", icon: Home },
-  { key: "Hallway", label: "Hall", icon: Home },
-  { key: "Bathroom", label: "Bathroom", icon: Bath },
-  { key: "Bedroom", label: "Bedroom", icon: BedDouble },
-  { key: "Other", label: "Other", icon: Briefcase }
-];
-const OTHER_ROOM_OPTIONS = ["Master Bedroom", "Spare Bedroom", "Nursery", "En Suite", "Landing", "Stairs", "Porch", "Utility Room", "Office", "Garage", "Conservatory", "Garden Room", "Fence", "Garden Fence", "Shed", "Exterior Wall", "Front Door", "Internal Doors", "Other"];
-const JOB_TYPE_OPTIONS = ["Painting", "Wallpapering", "Combination", "Other"];
-const TOGGLE_THREE = ["Yes", "No", "Partial"];
-const MATERIAL_SUPPLIERS = ["Decorator", "Client", "Mixed"];
-const TIME_OPTIONS = [
-  { label: "1/4 day", value: 0.25 },
-  { label: "1/2 day", value: 0.5 },
-  { label: "1 day", value: 1 },
-  { label: "1.5 day", value: 1.5 },
-  { label: "2 day", value: 2 },
-  { label: "2.5 day", value: 2.5 },
-  { label: "3 day", value: 3 }
-];
-const ADJUSTMENT_OPTIONS = [
-  { label: "Standard", value: 1 },
-  { label: "+5%", value: 1.05 },
-  { label: "+10%", value: 1.1 },
-  { label: "+15%", value: 1.15 },
-  { label: "+20%", value: 1.2 }
-];
-const OTHER_FEATURE_KEYS = [
-  ["dadoRails", "Dado Rails"],
-  ["pictureRails", "Picture Rails"],
-  ["radiators", "Radiators"],
-  ["windowSill", "Window Sill"],
-  ["banister", "Banister"],
-  ["spindles", "Spindles"],
-  ["stairsFeature", "Stairs"],
-  ["floor", "Floor"],
-  ["other", "Other"]
-];
-
-const initialState = {
-  clients: [],
-  quotes: [],
-  rooms: [],
-  photos: [],
-  invoices: [],
-  calendarEntries: [],
-  settings: {
-    businessName: "AUTY Decorating",
-    dayRate: DAY_RATE,
-    vatEnabled: true,
-    vatRate: VAT_RATE,
-    defaultDeposit: "20%",
-    businessEmail: "",
-    businessTelephone: "",
-    businessAddress: "",
-    paymentDetails: "Bank transfer details to be added.",
-    themeMode: "Light"
-  }
+const ROOM_ICONS = {
+  Living: Sofa,
+  Dining: Utensils,
+  Kitchen: Home,
+  Hall: Home,
+  Bathroom: Bath,
+  Bedroom: BedDouble,
+  Other: Briefcase
 };
-
-const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
-const money = (value) => `£${number(value).toFixed(2)}`;
-const today = () => new Date().toISOString().slice(0, 10);
-const uid = (prefix) => `${prefix}-${crypto.randomUUID()}`;
-const slug = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-const classNames = (...parts) => parts.filter(Boolean).join(" ");
-const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const shortDate = (value) => value ? new Date(`${value}T12:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Not set";
-const monthStamp = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-const addDays = (date, days) => {
-  if (!date) return "";
-  const next = new Date(`${date}T12:00:00`);
-  next.setDate(next.getDate() + Math.max(0, Math.ceil(number(days)) - 1));
-  return next.toISOString().slice(0, 10);
-};
-
-function splitName(name = "") {
-  const trimmed = name.trim();
-  if (!trimmed) return { surname: "", givenName: "" };
-  const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) return { surname: parts[0], givenName: "" };
-  return { surname: parts[parts.length - 1], givenName: parts.slice(0, -1).join(" ") };
-}
-
-function displayName(client) {
-  const surname = client?.surname || "";
-  const givenName = client?.givenName || "";
-  if (surname || givenName) return [givenName, surname].filter(Boolean).join(" ").trim();
-  return client?.name || "New Client";
-}
-
-function databaseName(client) {
-  const surname = client?.surname || "";
-  const givenName = client?.givenName || "";
-  if (surname || givenName) return `${surname || "Unknown"}, ${givenName}`.replace(/,\s$/, "");
-  return client?.name || "Unknown";
-}
-
-function legacyAwareLoad() {
-  let parsed = null;
-  try {
-    parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-  } catch {
-    parsed = null;
-  }
-  if (!parsed) {
-    for (const key of LEGACY_KEYS) {
-      try {
-        const legacy = JSON.parse(localStorage.getItem(key) || "null");
-        if (legacy) {
-          parsed = legacy;
-          break;
-        }
-      } catch {
-        continue;
-      }
-    }
-  }
-  const merged = { ...initialState, ...(parsed || {}) };
-  merged.clients = (merged.clients || []).map((client) => {
-    const split = splitName(client.name);
-    return {
-      ...client,
-      surname: client.surname || split.surname,
-      givenName: client.givenName || split.givenName
-    };
-  });
-  merged.rooms = (merged.rooms || []).map((room) => ({
-    ...room,
-    roomName: room.roomName || "Living Room",
-    roomPreset: room.roomPreset || room.roomName || "Living Room",
-    roomOther: room.roomOther || "",
-    jobType: room.jobType || "Painting",
-    otherJobType: room.otherJobType || "",
-    ceiling: room.ceiling || "No",
-    wallsPaint: room.wallsPaint || "No",
-    wallpapering: room.wallpapering || "No",
-    skirtingBoards: room.skirtingBoards || "No",
-    architrave: room.architrave || "No",
-    doors: room.doors || "No",
-    otherFeatures: {
-      dadoRails: room.otherFeatures?.dadoRails || "No",
-      pictureRails: room.otherFeatures?.pictureRails || "No",
-      radiators: room.otherFeatures?.radiators || "No",
-      windowSill: room.otherFeatures?.windowSill || "No",
-      banister: room.otherFeatures?.banister || "No",
-      spindles: room.otherFeatures?.spindles || "No",
-      stairsFeature: room.otherFeatures?.stairsFeature || room.otherFeatures?.stairs || "No",
-      floor: room.otherFeatures?.floor || "No",
-      other: room.otherFeatures?.other || "No"
-    },
-    adjustmentFactor: room.adjustmentFactor || room.pricingAdjustmentValue || factorFromLegacy(room.pricingAdjustment),
-    estimatedDays: number(room.estimatedDays || 1)
-  }));
-  return merged;
-}
-
-function factorFromLegacy(label) {
-  if (label === "+5%") return 1.05;
-  if (label === "+10%") return 1.1;
-  if (label === "+15%") return 1.15;
-  if (label === "+20%") return 1.2;
-  if (label === "+30%") return 1.3;
-  return 1;
-}
-
-function nextReference(prefix, items, field) {
-  const year = new Date().getFullYear();
-  const count = items.filter((item) => String(item[field] || "").includes(`${prefix}-${year}`)).length + 1;
-  return `${prefix}-${year}-${String(count).padStart(3, "0")}`;
-}
-
-function roomNameFromDraft(room) {
-  if (room.roomPreset !== "Other") return room.roomPreset;
-  return room.roomOther || "Other";
-}
-
-function adjustmentLabel(factor) {
-  const match = ADJUSTMENT_OPTIONS.find((option) => option.value === factor);
-  return match ? match.label : "Standard";
-}
-
-function generatedRoomDescription(room) {
-  const roomLabel = room.roomName || roomNameFromDraft(room);
-  const jobLabel = room.jobType === "Other" ? room.otherJobType || "Custom works" : room.jobType;
-  const bits = [];
-  if (room.ceiling === "Yes") bits.push("ceiling preparation and coating");
-  if (room.jobType === "Painting" || room.jobType === "Combination") bits.push("wall painting");
-  if (room.jobType === "Wallpapering" || room.jobType === "Combination") bits.push("wallpapering");
-  if (room.skirtingBoards !== "No") bits.push(`skirting boards (${room.skirtingBoards.toLowerCase()})`);
-  if (room.architrave !== "No") bits.push(`architrave (${room.architrave.toLowerCase()})`);
-  if (room.doors !== "No") bits.push(`doors (${room.doors.toLowerCase()})`);
-  OTHER_FEATURE_KEYS.forEach(([key, label]) => {
-    const value = room.otherFeatures?.[key];
-    if (value && value !== "No") bits.push(`${label.toLowerCase()} (${value.toLowerCase()})`);
-  });
-  const joined = bits.length ? bits.join(", ") : "general decorating works";
-  return `${roomLabel}: ${jobLabel} including ${joined}.`.trim();
-}
-
-function calculateQuote(quote, rooms, settings) {
-  const quoteRooms = rooms.filter((room) => quote?.roomIds?.includes(room.roomId));
-  const labourSubtotal = quoteRooms.reduce((sum, room) => sum + number(room.finalRoomPrice), 0);
-  const materialsTotal = quoteRooms.reduce((sum, room) => sum + (room.includeMaterials === "Yes" ? number(room.materialsCost) : 0), 0);
-  const subtotalBeforeDiscount = labourSubtotal + materialsTotal;
-  const discountAmount = quote?.discountType === "Custom"
-    ? number(quote.customDiscount)
-    : subtotalBeforeDiscount * (number(quote?.discountPercent) / 100);
-  const subtotalAfterDiscount = Math.max(0, subtotalBeforeDiscount - discountAmount);
-  const vatAmount = quote?.vatEnabled ? subtotalAfterDiscount * (number(settings.vatRate) / 100) : 0;
-  const total = subtotalAfterDiscount + vatAmount;
-  const depositAmount = quote?.depositType === "Fixed Amount" || quote?.depositType === "Custom"
-    ? number(quote.depositCustom)
-    : total * (number(String(quote?.depositType || "0").replace("%", "")) / 100);
-  const duration = quoteRooms.reduce((sum, room) => sum + number(room.estimatedDays), 0);
-  return {
-    rooms: quoteRooms,
-    labourSubtotal,
-    materialsTotal,
-    subtotalBeforeDiscount,
-    discountAmount,
-    subtotalAfterDiscount,
-    vatAmount,
-    total,
-    depositAmount: Math.min(total, depositAmount),
-    remainderAmount: Math.max(0, total - depositAmount),
-    duration,
-    completionDate: addDays(quote?.proposedStartDate, duration)
-  };
-}
-
-function calendarColour(type) {
-  if (type === "Personal Time") return "bg-violet-400";
-  if (type === "Potential Job (Unconfirmed)") return "bg-amber-300";
-  if (type === "Other Work") return "bg-cyan-400";
-  if (type === "Booked Job") return "bg-emerald-400";
-  if (type === "Quote Visit") return "bg-amber-400";
-  if (type === "Invoice Due") return "bg-rose-400";
-  return "bg-fuchsia-400";
-}
-
-function calendarTint(type) {
-  if (type === "Personal Time") return "bg-violet-50 text-violet-700 ring-violet-200";
-  if (type === "Potential Job (Unconfirmed)") return "bg-amber-50 text-amber-700 ring-amber-200";
-  if (type === "Other Work") return "bg-cyan-50 text-cyan-700 ring-cyan-200";
-  if (type === "Booked Job") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
-  if (type === "Quote Visit") return "bg-amber-50 text-amber-700 ring-amber-200";
-  if (type === "Invoice Due") return "bg-rose-50 text-rose-700 ring-rose-200";
-  return "bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-200";
-}
-
-function createRoomDraft(quoteId = "") {
-  return {
-    roomId: uid("room"),
-    quoteId,
-    roomPreset: "Living Room",
-    roomOther: "",
-    roomName: "Living Room",
-    jobType: "Painting",
-    otherJobType: "",
-    ceiling: "No",
-    ceilingNotes: "",
-    wallsPaint: "Yes",
-    paintNotes: "",
-    wallpapering: "No",
-    wallpaperingNotes: "",
-    skirtingBoards: "No",
-    architrave: "No",
-    doors: "No",
-    woodworkNotes: "",
-    otherFeatures: {
-      dadoRails: "No",
-      pictureRails: "No",
-      radiators: "No",
-      windowSill: "No",
-      banister: "No",
-      spindles: "No",
-      stairsFeature: "No",
-      floor: "No",
-      other: "No"
-    },
-    otherNotes: "",
-    generatedDescription: "",
-    paintSpecifics: "",
-    materials: "",
-    materialsSuppliedBy: "Decorator",
-    materialsCost: 0,
-    includeMaterials: "Yes",
-    estimatedDays: 0.5,
-    adjustmentFactor: 1,
-    overridePrice: "",
-    autoPrice: 0,
-    finalRoomPrice: 0,
-    notes: ""
-  };
-}
-
-function updateLinkedCollections(clientId, quoteIds, roomIds, removeItem) {
-  quoteIds.forEach((quoteId) => removeItem("quotes", "quoteId", quoteId));
-  roomIds.forEach((roomId) => removeItem("rooms", "roomId", roomId));
-  quoteIds.forEach((quoteId) => removeItem("invoices", "quoteId", quoteId));
-  quoteIds.forEach((quoteId) => removeItem("calendarEntries", "quoteId", quoteId));
-  roomIds.forEach((roomId) => removeItem("photos", "roomId", roomId));
-  removeItem("photos", "clientId", clientId);
-  removeItem("calendarEntries", "clientId", clientId);
-}
 
 function App() {
-  const [data, setData] = useState(legacyAwareLoad);
-  const [activeTab, setActiveTab] = useState("Dashboard");
-  const [jobTab, setJobTab] = useState("Room Quoter");
+  const [notice, setNotice] = useState("");
+  const [activeTab, setActiveTab] = useState(MAIN_TABS[0]);
+  const [jobTab, setJobTab] = useState(JOB_TABS[0]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedQuoteId, setSelectedQuoteId] = useState("");
   const [showSettings, setShowSettings] = useState(false);
-  const [notice, setNotice] = useState("");
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
-  const darkMode = data.settings?.themeMode === "Dark";
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }, [data]);
+  const workspace = useWorkspaceStore(setNotice);
+  const { data, mode, session, authReady, syncLabel, isCloud, actions } = workspace;
+  const darkMode = data.settings?.themeMode === "Dark";
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event) => {
@@ -379,8 +132,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => setNotice(""), 2600);
+    if (!notice) return undefined;
+    const timer = setTimeout(() => setNotice(""), 2800);
     return () => clearTimeout(timer);
   }, [notice]);
 
@@ -390,21 +143,13 @@ function App() {
     || data.quotes[0]
     || null;
 
-  const update = (key, updater) => {
-    setData((current) => ({
-      ...current,
-      [key]: typeof updater === "function" ? updater(current[key], current) : updater
-    }));
-  };
-
-  const upsert = (key, item, idField) => {
-    update(key, (items) => items.some((entry) => entry[idField] === item[idField])
-      ? items.map((entry) => entry[idField] === item[idField] ? item : entry)
-      : [item, ...items]);
-  };
-
-  const removeItem = (key, idField, idValue) => {
-    update(key, (items) => items.filter((entry) => entry[idField] !== idValue));
+  const installToHomeScreen = async () => {
+    if (installPromptEvent) {
+      await installPromptEvent.prompt();
+      setInstallPromptEvent(null);
+      return;
+    }
+    setNotice("Use your browser menu and choose Add to Home Screen");
   };
 
   const createClient = (seed = {}) => {
@@ -422,9 +167,9 @@ function App() {
       createdDate: today(),
       ...seed
     };
-    upsert("clients", client, "clientId");
+    actions.upsert("clients", client, "clientId");
     setSelectedClientId(client.clientId);
-    setNotice("Client created");
+    setNotice(isCloud ? "Client saved to cloud" : "Client created in preview mode");
     return client;
   };
 
@@ -438,14 +183,14 @@ function App() {
       totalAmount: calc.total,
       vatAmount: calc.vatAmount
     };
-    upsert("quotes", updated, "quoteId");
+    actions.upsert("quotes", updated, "quoteId");
     return updated;
   };
 
   const createQuote = (clientId = selectedClient?.clientId || "") => {
     if (!clientId) {
-      const client = createClient();
-      clientId = client.clientId;
+      const created = createClient();
+      clientId = created.clientId;
     }
     const quote = {
       quoteId: uid("quote"),
@@ -470,151 +215,42 @@ function App() {
       wholeJobSpecifics: "",
       roomIds: []
     };
-    upsert("quotes", quote, "quoteId");
+    actions.upsert("quotes", quote, "quoteId");
     setSelectedClientId(clientId);
     setSelectedQuoteId(quote.quoteId);
     setActiveTab("Current Job");
     setJobTab("Room Quoter");
-    setNotice("New quote started");
+    setNotice(isCloud ? "New quote started" : "Preview quote started");
     return quote;
   };
 
-  const generatePdf = (kind, quote, invoice) => {
-    const jsPDF = window.jspdf?.jsPDF;
-    if (!jsPDF || !quote) {
-      setNotice("PDF library unavailable");
+  const generatePdf = async (kind, quote, invoice) => {
+    if (!quote) {
+      setNotice("No quote selected");
       return;
     }
     const client = data.clients.find((entry) => entry.clientId === quote.clientId);
-    const calc = calculateQuote(quote, data.rooms, data.settings);
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const pageWidth = 210;
-    const margin = 14;
-    const usableWidth = pageWidth - margin * 2;
-    let y = 18;
-
-    const ensureSpace = (height) => {
-      if (y + height < 282) return;
-      doc.addPage();
-      y = 18;
-    };
-
-    const write = (text, options = {}) => {
-      const size = options.size || 10;
-      const bold = options.bold || false;
-      const colour = options.colour || [24, 34, 48];
-      doc.setFont("helvetica", bold ? "bold" : "normal");
-      doc.setTextColor(...colour);
-      doc.setFontSize(size);
-      const split = doc.splitTextToSize(String(text || ""), options.width || usableWidth);
-      ensureSpace(split.length * size * 0.48 + 5);
-      doc.text(split, options.x || margin, y);
-      y += split.length * size * 0.48 + (options.gap || 4);
-    };
-
-    const block = (title, lines, tone = [247, 244, 236]) => {
-      const height = 12 + lines.length * 7;
-      ensureSpace(height + 6);
-      doc.setFillColor(...tone);
-      doc.roundedRect(margin, y - 4, usableWidth, height, 3, 3, "F");
-      write(title, { bold: true, size: 12 });
-      lines.forEach((line) => write(line, { size: 10, gap: 3 }));
-      y += 2;
-    };
-
-    doc.setFillColor(24, 34, 48);
-    doc.roundedRect(margin, 12, usableWidth, 28, 4, 4, "F");
-    y = 22;
-    write(data.settings.businessName || "AUTY Decorating", { size: 20, bold: true, colour: [255, 255, 255], gap: 6 });
-    write(kind === "quote" ? `Quotation ${quote.quoteReference}` : `Invoice ${invoice.invoiceReference}`, { size: 13, bold: true, colour: [234, 188, 76], gap: 0 });
-    y = 48;
-
-    block("Client", [
-      `${displayName(client)}`,
-      client?.address || "Address not set",
-      [client?.telephone, client?.email].filter(Boolean).join(" | ") || "Contact details not set"
-    ]);
-
-    block(kind === "quote" ? "Schedule" : "Payment", kind === "quote"
-      ? [
-        `Quote date: ${shortDate(quote.quoteDate)}`,
-        `Proposed start date: ${shortDate(quote.proposedStartDate)}`,
-        `Estimated duration: ${calc.duration} days`,
-        `Estimated completion: ${shortDate(calc.completionDate)}`
-      ]
-      : [
-        `Invoice date: ${shortDate(invoice.invoiceDate)}`,
-        `Original quote: ${quote.quoteReference}`,
-        `Payment due date: ${shortDate(invoice.paymentDueDate)}`,
-        `Invoice status: ${invoice.invoiceStatus}`
-      ], kind === "quote" ? [247, 244, 236] : [238, 248, 244]);
-
-    ensureSpace(18);
-    write("Room Breakdown", { bold: true, size: 12 });
-    doc.setFillColor(232, 238, 248);
-    doc.roundedRect(margin, y - 1, usableWidth, 9, 2, 2, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Room", margin + 3, y + 5);
-    doc.text("Type", margin + 62, y + 5);
-    doc.text("Time", margin + 104, y + 5);
-    doc.text("Price", margin + 130, y + 5);
-    doc.text("Description", margin + 154, y + 5);
-    y += 12;
-
-    calc.rooms.forEach((room) => {
-      const description = doc.splitTextToSize(room.generatedDescription, 40);
-      const rowHeight = Math.max(10, description.length * 4 + 4);
-      ensureSpace(rowHeight + 2);
-      doc.setDrawColor(226, 221, 207);
-      doc.roundedRect(margin, y - 3, usableWidth, rowHeight, 2, 2, "S");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.text(room.roomName, margin + 3, y + 2);
-      doc.setFont("helvetica", "normal");
-      doc.text(room.jobType === "Other" ? room.otherJobType || "Other" : room.jobType, margin + 62, y + 2);
-      doc.text(`${room.estimatedDays} d`, margin + 104, y + 2);
-      doc.text(money(room.finalRoomPrice), margin + 130, y + 2);
-      doc.text(description, margin + 154, y + 2);
-      y += rowHeight + 2;
-    });
-
-    block("Price Summary", [
-      `Labour subtotal: ${money(calc.labourSubtotal)}`,
-      `Materials total: ${money(calc.materialsTotal)}`,
-      `Discount: ${money(calc.discountAmount)}`,
-      `VAT: ${money(calc.vatAmount)}`,
-      `Total: ${money(calc.total)}`,
-      `Deposit due now: ${money(calc.depositAmount)}`,
-      `Remainder due on completion: ${money(calc.remainderAmount)}`
-    ], [255, 247, 229]);
-
-    if (quote.wholeJobSpecifics) {
-      block("Whole Job Specifics", doc.splitTextToSize(quote.wholeJobSpecifics, usableWidth - 8), [244, 246, 255]);
+    const clientErrors = validateClient(client, { requireAddress: true });
+    const quoteErrors = validateQuote(quote, data.rooms, data.settings);
+    const invoiceErrors = kind === "invoice" ? validateInvoice(invoice, quote, data.rooms, data.settings) : [];
+    const errors = [...clientErrors, ...quoteErrors, ...invoiceErrors];
+    if (errors.length) {
+      setNotice(formatErrors(errors));
+      return;
     }
-
-    if (kind === "invoice" && invoice) {
-      block("Invoice Notes", [
-        `Deposit paid: ${money(invoice.depositPaid)}`,
-        `Balance due: ${money(invoice.balanceDue)}`,
-        `Payment details: ${data.settings.paymentDetails || "To be confirmed"}`
-      ], [244, 246, 255]);
-    } else {
-      block("Acceptance", [
-        "This quotation is valid for 30 days.",
-        "Accepted by: ______________________________",
-        "Date: ______________________________"
-      ], [244, 246, 255]);
+    try {
+      await generateWorkspacePdf({ kind, quote, invoice, data });
+      setNotice(kind === "quote" ? "Quotation PDF ready" : "Invoice PDF ready");
+    } catch (error) {
+      setNotice(error.message || "PDF generation failed");
     }
-
-    doc.save(kind === "quote" ? `${quote.quoteReference}.pdf` : `${invoice.invoiceReference}.pdf`);
   };
 
   const pageProps = {
     data,
-    update,
-    upsert,
-    removeItem,
+    update: actions.update,
+    upsert: actions.upsert,
+    removeItem: actions.removeItem,
     createClient,
     createQuote,
     selectedClient,
@@ -625,17 +261,25 @@ function App() {
     setJobTab,
     saveQuoteTotals,
     generatePdf,
-    setNotice
+    setNotice,
+    session,
+    workspaceActions: actions,
+    isCloud,
+    syncLabel
   };
 
-  const installToHomeScreen = async () => {
-    if (installPromptEvent) {
-      await installPromptEvent.prompt();
-      setInstallPromptEvent(null);
-      return;
-    }
-    setNotice("Use your browser menu and choose Add to Home Screen");
-  };
+  if (!authReady) {
+    return h(LoadingScreen, { darkMode });
+  }
+
+  if (mode === "auth") {
+    return h(AuthScreen, {
+      darkMode,
+      setNotice,
+      onSignIn: actions.signIn,
+      onSignUp: actions.signUp
+    });
+  }
 
   return h("div", { className: classNames(
     "min-h-screen pb-28 transition-colors duration-500",
@@ -650,8 +294,12 @@ function App() {
       ) },
         h("div", { className: "flex items-center justify-between gap-4" },
           h("div", null,
-            h("p", { className: "text-[11px] font-bold uppercase tracking-[0.28em] text-auty-gold" }, "Auty Decorating Workspace App"),
-            h("h1", { className: classNames("mt-1 text-2xl font-black tracking-tight", darkMode ? "text-white" : "text-slate-900") }, activeTab === "Current Job" ? jobTab : activeTab)
+            h("div", { className: "flex flex-wrap items-center gap-2" },
+              h("p", { className: "text-[11px] font-bold uppercase tracking-[0.28em] text-auty-gold" }, "Auty Decorating Workspace App"),
+              h(StatusPill, { label: syncLabel, darkMode, cloud: isCloud })
+            ),
+            h("h1", { className: classNames("mt-1 text-2xl font-black tracking-tight", darkMode ? "text-white" : "text-slate-900") }, activeTab === "Current Job" ? jobTab : activeTab),
+            h("p", { className: classNames("mt-1 text-xs", darkMode ? "text-white/65" : "text-slate-500") }, session?.user?.email || (!isCloud ? "Preview mode: Supabase not configured" : ""))
           ),
           h("button", {
             onClick: () => setShowSettings(true),
@@ -663,6 +311,7 @@ function App() {
         )
       ),
       h("div", { className: "animate-[fadeIn_.45s_ease] flex-1" },
+        !isCloud && h(PreviewBanner, { darkMode }),
         activeTab === "Dashboard" && h(DashboardPage, pageProps),
         activeTab === "Calendar" && h(CalendarPage, pageProps),
         activeTab === "Client Database" && h(ClientDatabasePage, pageProps),
@@ -670,9 +319,352 @@ function App() {
       )
     ),
     h(FloatingNav, { activeTab, setActiveTab, darkMode }),
-    showSettings && h(SettingsPanel, { data, update, setShowSettings, setNotice, installToHomeScreen, darkMode }),
+    showSettings && h(SettingsPanel, {
+      data,
+      update: actions.update,
+      setShowSettings,
+      setNotice,
+      installToHomeScreen,
+      darkMode,
+      exportBackup: actions.exportBackup,
+      importBackupFile: actions.importBackupFile,
+      uploadLogoFile: actions.uploadLogoFile,
+      signOutUser: actions.signOut,
+      session,
+      isCloud
+    }),
     notice && h("div", { className: classNames("fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-full px-5 py-3 text-sm font-bold text-white shadow-xl animate-[slideIn_.3s_ease]", darkMode ? "bg-slate-800/95" : "bg-slate-900") }, notice)
   );
+}
+
+function useWorkspaceStore(setNotice) {
+  const cloudReady = isSupabaseConfigured();
+  const [data, setData] = useState(loadLegacyWorkspace);
+  const [session, setSession] = useState(null);
+  const [authReady, setAuthReady] = useState(!cloudReady);
+  const [syncLabel, setSyncLabel] = useState(cloudReady ? "Awaiting sign-in" : "Preview mode");
+  const mode = cloudReady ? (session ? "app" : "auth") : "preview";
+
+  useEffect(() => {
+    if (!cloudReady) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+  }, [cloudReady, data]);
+
+  useEffect(() => {
+    if (!cloudReady) return undefined;
+    let cancelled = false;
+
+    const start = async () => {
+      try {
+        const current = await getSession();
+        if (cancelled) return;
+        setSession(current);
+        setAuthReady(true);
+        if (current?.user) {
+          setSyncLabel("Loading workspace");
+          const loaded = await fetchWorkspaceData(current.user.id);
+          if (!cancelled) {
+            setData(loaded);
+            setSyncLabel("Cloud synced");
+          }
+        } else {
+          setSyncLabel("Awaiting sign-in");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setAuthReady(true);
+          setSyncLabel("Cloud setup issue");
+          setNotice(error.message || "Unable to connect to Supabase");
+        }
+      }
+    };
+
+    start();
+
+    let subscription = null;
+    onAuthStateChange(async (nextSession) => {
+      if (cancelled) return;
+      setSession(nextSession);
+      if (nextSession?.user) {
+        setSyncLabel("Loading workspace");
+        try {
+          const loaded = await fetchWorkspaceData(nextSession.user.id);
+          if (!cancelled) {
+            setData(loaded);
+            setSyncLabel("Cloud synced");
+          }
+        } catch (error) {
+          if (!cancelled) setNotice(error.message || "Unable to load workspace");
+        }
+      } else {
+        setData(loadLegacyWorkspace());
+        setSyncLabel("Awaiting sign-in");
+      }
+    }).then((result) => {
+      subscription = result?.data?.subscription || null;
+    }).catch((error) => {
+      setNotice(error.message || "Auth listener failed");
+    });
+
+    return () => {
+      cancelled = true;
+      subscription?.unsubscribe?.();
+    };
+  }, [cloudReady, setNotice]);
+
+  const syncSettings = async (settings) => {
+    if (!cloudReady || !session?.user) return;
+    try {
+      setSyncLabel("Saving settings");
+      await upsertSettings(settings, session.user.id);
+      setSyncLabel("Cloud synced");
+    } catch (error) {
+      setSyncLabel("Sync issue");
+      setNotice(error.message || "Unable to save settings");
+    }
+  };
+
+  const update = (key, updater) => {
+    let nextValue;
+    setData((current) => {
+      nextValue = typeof updater === "function" ? updater(current[key], current) : updater;
+      return normaliseState({ ...current, [key]: nextValue });
+    });
+    if (key === "settings") {
+      syncSettings(normaliseState({ settings: nextValue }).settings);
+    }
+  };
+
+  const upsert = (key, item, idField) => {
+    setData((current) => {
+      const items = current[key] || [];
+      const nextItems = items.some((entry) => entry[idField] === item[idField])
+        ? items.map((entry) => entry[idField] === item[idField] ? item : entry)
+        : [item, ...items];
+      return normaliseState({ ...current, [key]: nextItems });
+    });
+    if (cloudReady && session?.user) {
+      setSyncLabel("Saving changes");
+      upsertEntity(key, item, session.user.id)
+        .then(() => setSyncLabel("Cloud synced"))
+        .catch((error) => {
+          setSyncLabel("Sync issue");
+          setNotice(error.message || "Unable to save changes");
+        });
+    }
+  };
+
+  const removeItem = (key, idField, idValue) => {
+    setData((current) => normaliseState({
+      ...current,
+      [key]: (current[key] || []).filter((entry) => entry[idField] !== idValue)
+    }));
+    if (cloudReady && session?.user) {
+      setSyncLabel("Updating workspace");
+      deleteEntity(key, idValue, session.user.id)
+        .then(() => setSyncLabel("Cloud synced"))
+        .catch((error) => {
+          setSyncLabel("Sync issue");
+          setNotice(error.message || "Unable to delete record");
+        });
+    }
+  };
+
+  const exportBackup = () => {
+    const payload = buildBackupPayload(data, session?.user || null);
+    downloadText(`auty-decorating-backup-${today()}.json`, JSON.stringify(payload, null, 2), "application/json");
+  };
+
+  const importBackupFile = async (file) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const imported = parseBackupPayload(reader.result);
+        setData(imported);
+        if (cloudReady && session?.user) {
+          setSyncLabel("Importing backup");
+          await replaceWorkspaceData(imported, session.user.id);
+          setSyncLabel("Cloud synced");
+        } else {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(imported));
+        }
+        setNotice("Backup imported");
+      } catch (error) {
+        setNotice(error.message || "Backup import failed");
+      }
+    };
+    if (file) reader.readAsText(file);
+  };
+
+  const uploadPhotoFile = async (file, form) => {
+    if (!cloudReady || !session?.user) {
+      const reader = new FileReader();
+      return new Promise((resolve, reject) => {
+        reader.onload = () => resolve({
+          photoId: uid("photo"),
+          clientId: form.clientId,
+          quoteId: form.quoteId,
+          roomId: form.roomId,
+          imageUrl: reader.result,
+          photoType: form.photoType,
+          caption: form.caption,
+          uploadedDate: today()
+        });
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+    setSyncLabel("Uploading photo");
+    const photo = await uploadPhoto(file, form, session.user.id);
+    setSyncLabel("Cloud synced");
+    return photo;
+  };
+
+  const uploadLogoFile = async (file) => {
+    if (!file) return;
+    if (!cloudReady || !session?.user) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        update("settings", (settings) => ({ ...settings, logoUrl: reader.result, logoPath: "" }));
+        setNotice("Logo added in preview mode");
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+    try {
+      setSyncLabel("Uploading logo");
+      const logo = await uploadLogo(file, session.user.id);
+      update("settings", (settings) => ({ ...settings, ...logo }));
+      setSyncLabel("Cloud synced");
+      setNotice("Logo uploaded");
+    } catch (error) {
+      setSyncLabel("Sync issue");
+      setNotice(error.message || "Logo upload failed");
+    }
+  };
+
+  const signIn = async ({ email, password }) => {
+    await signInWithPassword(email, password);
+    setNotice("Signed in");
+  };
+
+  const signUp = async ({ email, password }) => {
+    await signUpWithPassword(email, password);
+    setNotice("Account created. Check your email if confirmation is enabled.");
+  };
+
+  const signOutUser = async () => {
+    await signOut();
+    setNotice("Signed out");
+  };
+
+  return {
+    data,
+    session,
+    mode,
+    authReady,
+    isCloud: cloudReady,
+    syncLabel,
+    actions: {
+      update,
+      upsert,
+      removeItem,
+      exportBackup,
+      importBackupFile,
+      uploadPhotoFile,
+      uploadLogoFile,
+      signIn,
+      signUp,
+      signOut: signOutUser
+    }
+  };
+}
+
+function AuthScreen({ darkMode, setNotice, onSignIn, onSignUp }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState("signin");
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (!email || !password) {
+      setNotice("Enter email and password");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      if (mode === "signin") await onSignIn({ email, password });
+      else await onSignUp({ email, password });
+    } catch (error) {
+      setNotice(error.message || "Authentication failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return h("div", { className: classNames(
+    "min-h-screen px-4 py-8",
+    darkMode
+      ? "bg-[linear-gradient(180deg,#09111f_0%,_#101a2d_100%)] text-white"
+      : "bg-[linear-gradient(180deg,#fbf5ec_0%,_#f7fbff_100%)] text-auty-ink"
+  ) },
+    h("div", { className: "mx-auto max-w-md rounded-[32px] border border-white/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.58))] p-6 shadow-[0_24px_60px_rgba(24,34,48,0.14)] backdrop-blur-2xl" },
+      h("p", { className: "text-[11px] font-bold uppercase tracking-[0.28em] text-auty-gold" }, "AUTY Decorating Workspace"),
+      h("h1", { className: "mt-2 text-3xl font-black text-slate-900" }, "Sign in to your workspace"),
+      h("p", { className: "mt-2 text-sm text-slate-500" }, "Supabase authentication is now the main data path for production use. Each decorator gets their own cloud-synced workspace."),
+      h("div", { className: "mt-5 grid gap-4" },
+        h(Field, { label: "Email", value: email, onChange: setEmail }),
+        h(Field, { label: "Password", value: password, type: "password", onChange: setPassword }),
+        h("div", { className: "grid grid-cols-2 gap-2" },
+          h(ActionButton, { label: mode === "signin" ? "Sign In" : "Create Account", onClick: submit, icon: Lock, className: "w-full" }),
+          h(ActionButton, {
+            label: mode === "signin" ? "Switch to Sign Up" : "Switch to Sign In",
+            onClick: () => setMode(mode === "signin" ? "signup" : "signin"),
+            variant: "soft",
+            className: "w-full"
+          })
+        ),
+        submitting && h("p", { className: "text-sm text-slate-500" }, "Working...")
+      )
+    )
+  );
+}
+
+function LoadingScreen({ darkMode }) {
+  return h("div", { className: classNames(
+    "grid min-h-screen place-items-center",
+    darkMode ? "bg-slate-950 text-white" : "bg-auty-cream text-auty-ink"
+  ) },
+    h("div", { className: "rounded-[28px] border border-white/50 bg-white/70 px-6 py-5 text-center shadow-xl backdrop-blur" },
+      h("p", { className: "text-sm font-bold uppercase tracking-[0.28em] text-auty-gold" }, "Loading"),
+      h("p", { className: "mt-2 text-lg font-black text-slate-900" }, "Preparing your workspace")
+    )
+  );
+}
+
+function PreviewBanner({ darkMode }) {
+  return h("div", { className: classNames(
+    "mb-4 flex items-start gap-3 rounded-[24px] border px-4 py-4 text-sm shadow-sm backdrop-blur-xl",
+    darkMode ? "border-amber-300/20 bg-amber-400/10 text-amber-100" : "border-amber-200 bg-amber-50/90 text-amber-900"
+  ) },
+    h(ShieldCheck, { size: 18, className: "mt-0.5 shrink-0" }),
+    h("div", null,
+      h("p", { className: "font-black" }, "Preview mode"),
+      h("p", { className: "mt-1" }, "Supabase is not configured yet, so this session is still running in browser preview mode. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to switch the app to cloud auth, database sync, and storage.")
+    )
+  );
+}
+
+function StatusPill({ label, darkMode, cloud }) {
+  return h("span", {
+    className: classNames(
+      "inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold",
+      cloud
+        ? darkMode ? "bg-emerald-400/15 text-emerald-200" : "bg-emerald-50 text-emerald-700"
+        : darkMode ? "bg-amber-300/15 text-amber-200" : "bg-amber-50 text-amber-700"
+    )
+  }, h(cloud ? Cloud : ShieldCheck, { size: 12 }), label);
 }
 
 function FloatingNav({ activeTab, setActiveTab, darkMode }) {
@@ -722,7 +714,7 @@ function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTa
       h("div", { className: "overflow-hidden rounded-[32px] border border-white/55 bg-[linear-gradient(135deg,rgba(34,48,71,0.82),rgba(111,168,220,0.48),rgba(233,184,92,0.38))] p-5 text-white shadow-[0_28px_70px_rgba(24,34,48,0.22),inset_0_1px_0_rgba(255,255,255,0.26)] backdrop-blur-2xl" },
         h("p", { className: "text-[11px] font-bold uppercase tracking-[0.3em] text-amber-300" }, "Today"),
         h("h2", { className: "mt-2 max-w-xl text-3xl font-black leading-tight" }, "Keep jobs moving, quotes clear, and payment follow-up tidy."),
-        h("p", { className: "mt-3 max-w-2xl text-sm text-white/72" }, "This version is arranged for quick use on a busy day. The main job flow lives under Current Job, while your client list and diary stay one tap away."),
+        h("p", { className: "mt-3 max-w-2xl text-sm text-white/72" }, "Dashboard, Calendar, Client Database and Current Job still work the same way, now with a cloud-ready data path underneath."),
         h("div", { className: "mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" },
           h(QuickAction, { label: "New Client", onClick: () => { createClient(); setActiveTab("Client Database"); }, icon: UserPlus, tone: "from-white to-amber-50 text-slate-900" }),
           h(QuickAction, { label: "New Quote", onClick: () => { createQuote(); setActiveTab("Current Job"); setJobTab("Room Quoter"); }, icon: ClipboardList, tone: "from-amber-400 to-orange-500 text-white" }),
@@ -772,20 +764,23 @@ function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTa
   );
 }
 
-function QuickAction({ label, onClick, icon: Icon, tone }) {
-  return h("button", {
-    onClick,
-    className: classNames("rounded-[22px] bg-gradient-to-br p-4 text-left font-black transition duration-300 hover:-translate-y-1 hover:shadow-xl", tone)
-  },
-    h(Icon, { size: 20 }),
-    h("p", { className: "mt-4 text-sm" }, label)
-  );
-}
-
 function CalendarPage({ data, upsert, setNotice }) {
   const [monthView, setMonthView] = useState(new Date());
   const [activeDotId, setActiveDotId] = useState("");
-  const [entry, setEntry] = useState({ title: "", type: "Personal Time", startDate: today(), endDate: today(), clientId: "", quoteId: "", notes: "" });
+  const [entry, setEntry] = useState({
+    title: "",
+    type: "Personal Time",
+    startDate: today(),
+    endDate: today(),
+    clientId: "",
+    quoteId: "",
+    notes: "",
+    syncStatus: "not_connected",
+    externalCalendarId: "",
+    externalEventId: "",
+    externalProvider: ""
+  });
+
   const monthGrid = buildMonthGrid(monthView, data.calendarEntries);
   const visibleEntries = data.calendarEntries
     .filter((item) => item.startDate.slice(0, 7) <= monthStamp(monthView) && item.endDate.slice(0, 7) >= monthStamp(monthView))
@@ -895,7 +890,7 @@ function CalendarPage({ data, upsert, setNotice }) {
           visibleEntries.map((entryItem) => h("div", { key: entryItem.calendarEntryId, className: "rounded-[22px] bg-[linear-gradient(135deg,#fefefe,#f8f3ec)] p-4 shadow-sm" },
             h("div", { className: "flex items-start justify-between gap-3" },
               h("div", null,
-                      h("span", { className: classNames("inline-flex rounded-full px-3 py-1 text-[11px] font-bold ring-1", calendarTint(entryItem.type)) }, entryItem.type),
+                h("span", { className: classNames("inline-flex rounded-full px-3 py-1 text-[11px] font-bold ring-1", calendarTint(entryItem.type)) }, entryItem.type),
                 h("p", { className: "mt-2 font-black text-slate-900" }, entryItem.title),
                 h("p", { className: "text-sm text-slate-500" }, `${shortDate(entryItem.startDate)} to ${shortDate(entryItem.endDate)}`)
               ),
@@ -967,9 +962,15 @@ function ClientDatabasePage({ data, upsert, removeItem, createClient, createQuot
   const saveClient = (clientId) => {
     const draft = drafts[clientId];
     if (!draft) return;
+    const errors = validateClient(draft);
+    if (errors.length) {
+      setNotice(formatErrors(errors));
+      return;
+    }
     upsert("clients", { ...draft, name: displayName(draft) }, "clientId");
     setEditId("");
     setOpenId("");
+    setNotice("Client saved");
   };
 
   const deleteClient = (client) => {
@@ -1114,9 +1115,7 @@ function ClientDatabasePage({ data, upsert, removeItem, createClient, createQuot
                 h(InfoPanel, { title: "Related Photos", items: photos.map((photo) => photo.caption || photo.photoType) })
               )
             ),
-            editing && h("div", { className: "mt-4" },
-              h(ActionButton, { label: "Save Client", onClick: () => saveClient(client.clientId), icon: Save })
-            )
+            editing && h("div", { className: "mt-4" }, h(ActionButton, { label: "Save Client", onClick: () => saveClient(client.clientId), icon: Save }))
           )
         );
       })
@@ -1161,8 +1160,8 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
   const quote = selectedQuote;
   const client = selectedClient;
   const roomName = roomNameFromDraft(draft);
-  const autoPrice = number(draft.estimatedDays) * number(data.settings.dayRate) * number(draft.adjustmentFactor);
-  const finalRoomPrice = draft.overridePrice !== "" ? number(draft.overridePrice) : autoPrice;
+  const autoPrice = roomAutoPrice(draft, data.settings.dayRate || DAY_RATE);
+  const finalRoomPrice = draft.overridePrice !== "" ? Number(draft.overridePrice) : autoPrice;
   const description = draft.generatedDescription || generatedRoomDescription({ ...draft, roomName });
   const quoteRooms = data.rooms.filter((room) => room.quoteId === quote?.quoteId);
 
@@ -1203,10 +1202,6 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
       setNotice("Start a quote first");
       return;
     }
-    if (!roomName) {
-      setNotice("Choose the room first");
-      return;
-    }
     const savedRoom = {
       ...draft,
       quoteId: quote.quoteId,
@@ -1215,6 +1210,11 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
       finalRoomPrice,
       generatedDescription: description
     };
+    const errors = validateRoom(savedRoom);
+    if (errors.length) {
+      setNotice(formatErrors(errors));
+      return;
+    }
     upsert("rooms", savedRoom, "roomId");
     const updatedQuote = {
       ...quote,
@@ -1252,13 +1252,16 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
       h("div", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
         h("h3", { className: "text-lg font-black text-slate-900" }, "Room"),
         h("div", { className: "mt-4 grid grid-cols-3 gap-3 xl:grid-cols-4" },
-          ROOM_PRESETS.map((room) => h(SelectCard, {
-            key: room.key,
-            active: draft.roomPreset === room.key,
-            label: room.label,
-            icon: room.icon,
-            onClick: () => patch("roomPreset", room.key)
-          }))
+          ROOM_PRESETS.map((room) => {
+            const Icon = ROOM_ICONS[room.label] || Briefcase;
+            return h(SelectCard, {
+              key: room.key,
+              active: draft.roomPreset === room.key,
+              label: room.label,
+              icon: Icon,
+              onClick: () => patch("roomPreset", room.key)
+            });
+          })
         ),
         otherRoomOpen && h("div", { className: "mt-4" }, h(Field, { label: "Other Room", value: draft.roomOther, options: OTHER_ROOM_OPTIONS, onChange: (value) => patch("roomOther", value) })),
         h("h3", { className: "mt-6 text-lg font-black text-slate-900" }, "Job Type"),
@@ -1283,9 +1286,7 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
           h("h3", { className: "text-lg font-black text-slate-900" }, "Room Woodwork"),
           [["Skirting Boards", "skirtingBoards"], ["Architrave", "architrave"], ["Doors", "doors"]].map(([label, key]) => h("div", { key, className: "mt-4 rounded-[22px] bg-[linear-gradient(135deg,#f8fbff,#fffaf2)] p-3" },
             h("p", { className: "text-sm font-black text-slate-900" }, label),
-            h("div", { className: "mt-3 flex flex-wrap gap-2" },
-              TOGGLE_THREE.map((value) => h(SelectPill, { key: value, active: draft[key] === value, label: value, onClick: () => patch(key, value) }))
-            )
+            h("div", { className: "mt-3 flex flex-wrap gap-2" }, TOGGLE_THREE.map((value) => h(SelectPill, { key: value, active: draft[key] === value, label: value, onClick: () => patch(key, value) })))
           )),
           woodworkActive && h("div", { className: "mt-4" }, h(Field, { label: "Woodwork Notes", value: draft.woodworkNotes, textarea: true, onChange: (value) => patch("woodworkNotes", value) }))
         )
@@ -1295,9 +1296,7 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
         h("div", { className: "mt-4 grid gap-3 xl:grid-cols-2" },
           OTHER_FEATURE_KEYS.map(([key, label]) => h("div", { key, className: "rounded-[22px] bg-[linear-gradient(135deg,#fff9ef,#f4f8ff)] p-4" },
             h("p", { className: "text-sm font-black text-slate-900" }, label),
-            h("div", { className: "mt-3 flex flex-wrap gap-2" },
-              TOGGLE_THREE.map((value) => h(SelectPill, { key: value, active: draft.otherFeatures[key] === value, label: value, onClick: () => patchFeature(key, value) }))
-            )
+            h("div", { className: "mt-3 flex flex-wrap gap-2" }, TOGGLE_THREE.map((value) => h(SelectPill, { key: value, active: draft.otherFeatures[key] === value, label: value, onClick: () => patchFeature(key, value) })))
           ))
         ),
         h("div", { className: "mt-4" }, h(Field, { label: "Other Notes", value: draft.otherNotes, textarea: true, onChange: (value) => patch("otherNotes", value) }))
@@ -1316,25 +1315,21 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
     h("aside", { className: "space-y-5" },
       h("div", { className: "rounded-[30px] border border-white/70 bg-[linear-gradient(180deg,#1f2f42,#345273)] p-5 text-white shadow-[0_22px_60px_rgba(24,34,48,0.24)]" },
         h("h3", { className: "text-lg font-black" }, "Room Estimate In Time"),
-        h("div", { className: "mt-4 flex flex-wrap gap-2" },
-          TIME_OPTIONS.map((option) => h(SelectPill, {
-            key: option.label,
-            active: draft.estimatedDays === option.value,
-            label: option.label,
-            inverse: true,
-            onClick: () => patch("estimatedDays", option.value)
-          }))
-        ),
+        h("div", { className: "mt-4 flex flex-wrap gap-2" }, TIME_OPTIONS.map((option) => h(SelectPill, {
+          key: option.label,
+          active: draft.estimatedDays === option.value,
+          label: option.label,
+          inverse: true,
+          onClick: () => patch("estimatedDays", option.value)
+        }))),
         h("h3", { className: "mt-6 text-lg font-black" }, "Price Adjustment"),
-        h("div", { className: "mt-4 flex flex-wrap gap-2" },
-          ADJUSTMENT_OPTIONS.map((option) => h(SelectPill, {
-            key: option.label,
-            active: draft.adjustmentFactor === option.value,
-            label: option.label,
-            inverse: true,
-            onClick: () => patch("adjustmentFactor", option.value)
-          }))
-        ),
+        h("div", { className: "mt-4 flex flex-wrap gap-2" }, ADJUSTMENT_OPTIONS.map((option) => h(SelectPill, {
+          key: option.label,
+          active: draft.adjustmentFactor === option.value,
+          label: option.label,
+          inverse: true,
+          onClick: () => patch("adjustmentFactor", option.value)
+        }))),
         h("div", { className: "mt-6 rounded-[24px] bg-white/10 p-4" },
           h("p", { className: "text-sm font-bold uppercase tracking-[0.2em] text-amber-200" }, "Final Room Price"),
           h("p", { className: "mt-2 text-4xl font-black" }, money(finalRoomPrice)),
@@ -1363,9 +1358,7 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
 
 function JobOverviewPage({ data, selectedClient, selectedQuote, upsert, removeItem, saveQuoteTotals, generatePdf, setNotice }) {
   const [editingClient, setEditingClient] = useState(false);
-  if (!selectedQuote) {
-    return h(EmptyState, { title: "No current quote selected", body: "Start a quote in Room Quoter or pick a client with an existing job." });
-  }
+  if (!selectedQuote) return h(EmptyState, { title: "No current quote selected", body: "Start a quote in Room Quoter or pick a client with an existing job." });
   const client = selectedClient || data.clients.find((entry) => entry.clientId === selectedQuote.clientId);
   const rooms = data.rooms.filter((room) => selectedQuote.roomIds.includes(room.roomId));
   const calc = calculateQuote(selectedQuote, data.rooms, data.settings);
@@ -1435,7 +1428,7 @@ function JobOverviewPage({ data, selectedClient, selectedQuote, upsert, removeIt
         h("div", { className: "mt-4 grid gap-4 lg:grid-cols-2" },
           h(Field, { label: "Proposed Start Date", value: selectedQuote.proposedStartDate, type: "date", onChange: (value) => updateQuote({ proposedStartDate: value }) }),
           h(Field, { label: "Quote Status", value: selectedQuote.quoteStatus, options: QUOTE_STATUSES, onChange: (value) => updateQuote({ quoteStatus: value }) }),
-          h(Field, { label: "Overall Discount", value: selectedQuote.discountType, options: ["No Discount", "5%", "10%", "15%", "20%", "Custom"], onChange: (value) => updateQuote({ discountType: value, discountPercent: value === "Custom" || value === "No Discount" ? 0 : number(value.replace("%", "")) }) }),
+          h(Field, { label: "Overall Discount", value: selectedQuote.discountType, options: ["No Discount", "5%", "10%", "15%", "20%", "Custom"], onChange: (value) => updateQuote({ discountType: value, discountPercent: value === "Custom" || value === "No Discount" ? 0 : Number(value.replace("%", "")) }) }),
           selectedQuote.discountType === "Custom" && h(Field, { label: "Custom Discount", value: selectedQuote.customDiscount, type: "number", onChange: (value) => updateQuote({ customDiscount: value }) }),
           h(Field, { label: "VAT", value: selectedQuote.vatEnabled ? "Enabled" : "Disabled", options: ["Enabled", "Disabled"], onChange: (value) => updateQuote({ vatEnabled: value === "Enabled" }) }),
           h(Field, { label: "Deposit Due Now", value: selectedQuote.depositType, options: ["No Deposit", "10%", "20%", "25%", "30%", "50%", "Fixed Amount", "Custom"], onChange: (value) => updateQuote({ depositType: value }) }),
@@ -1486,15 +1479,17 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
     });
   }, [quote?.quoteId, existingInvoice?.invoiceId, calc?.total, calc?.depositAmount]);
 
-  if (!quote || !calc || !draftInvoice) {
-    return h(EmptyState, { title: "No quote ready for invoicing", body: "Create or select a quote first." });
-  }
+  if (!quote || !calc || !draftInvoice) return h(EmptyState, { title: "No quote ready for invoicing", body: "Create or select a quote first." });
 
-  const saveAndGenerate = () => {
-    const invoice = { ...draftInvoice, jobTotal: calc.total, balanceDue: Math.max(0, calc.total - number(draftInvoice.depositPaid)) };
+  const saveAndGenerate = async () => {
+    const invoice = { ...draftInvoice, jobTotal: calc.total, balanceDue: Math.max(0, calc.total - Number(draftInvoice.depositPaid)) };
+    const errors = validateInvoice(invoice, quote, data.rooms, data.settings);
+    if (errors.length) {
+      setNotice(formatErrors(errors));
+      return;
+    }
     upsert("invoices", invoice, "invoiceId");
-    generatePdf("invoice", quote, invoice);
-    setNotice("Invoice generated");
+    await generatePdf("invoice", quote, invoice);
   };
 
   const deleteInvoice = (invoice) => {
@@ -1521,11 +1516,11 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
       h("p", { className: "text-[11px] font-bold uppercase tracking-[0.24em] text-auty-gold" }, "Invoice Generator"),
       h("h2", { className: "text-2xl font-black text-slate-900" }, "Final invoice layout"),
       h("div", { className: "mt-4 grid gap-4 lg:grid-cols-2" },
-        h(Field, { label: "Quote To Invoice", value: quote.quoteId, options: data.quotes.map((entry) => ({ value: entry.quoteId, label: `${entry.quoteReference} - ${displayName(data.clients.find((client) => client.clientId === entry.clientId))}` })), onChange: setQuoteId }),
+        h(Field, { label: "Quote To Invoice", value: quote.quoteId, options: data.quotes.map((entry) => ({ value: entry.quoteId, label: `${entry.quoteReference} - ${displayName(data.clients.find((clientEntry) => clientEntry.clientId === entry.clientId))}` })), onChange: setQuoteId }),
         h(Field, { label: "Invoice Reference", value: draftInvoice.invoiceReference, onChange: (value) => setDraftInvoice({ ...draftInvoice, invoiceReference: value }) }),
         h(Field, { label: "Invoice Date", value: draftInvoice.invoiceDate, type: "date", onChange: (value) => setDraftInvoice({ ...draftInvoice, invoiceDate: value }) }),
         h(Field, { label: "Payment Due Date", value: draftInvoice.paymentDueDate, type: "date", onChange: (value) => setDraftInvoice({ ...draftInvoice, paymentDueDate: value }) }),
-        h(Field, { label: "Deposit Paid", value: draftInvoice.depositPaid, type: "number", onChange: (value) => setDraftInvoice({ ...draftInvoice, depositPaid: value, balanceDue: Math.max(0, calc.total - number(value)) }) }),
+        h(Field, { label: "Deposit Paid", value: draftInvoice.depositPaid, type: "number", onChange: (value) => setDraftInvoice({ ...draftInvoice, depositPaid: value, balanceDue: Math.max(0, calc.total - Number(value)) }) }),
         h(Field, { label: "Invoice Status", value: draftInvoice.invoiceStatus, options: ["Invoice Due", "Part Paid", "Paid", "Overdue"], onChange: (value) => setDraftInvoice({ ...draftInvoice, invoiceStatus: value }) })
       ),
       h("div", { className: "mt-5 grid gap-3 sm:grid-cols-2" },
@@ -1546,25 +1541,23 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
       ),
       h("div", { className: "rounded-[30px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.48))] p-5 shadow-[0_22px_55px_rgba(24,34,48,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl" },
         h("h3", { className: "text-lg font-black text-slate-900" }, "Past Invoices"),
-        relatedInvoices.length
-          ? h("div", { className: "mt-4 space-y-3" },
-            relatedInvoices.map((invoice) => h("div", { key: invoice.invoiceId, className: "rounded-[22px] bg-[linear-gradient(135deg,#ffffff,#f8fbff)] p-4 shadow-sm" },
-              h("div", { className: "flex items-start justify-between gap-3" },
-                h("div", null,
-                  h("p", { className: "font-black text-slate-900" }, invoice.invoiceReference),
-                  h("p", { className: "text-sm text-slate-500" }, `${shortDate(invoice.invoiceDate)} | ${invoice.invoiceStatus}`)
-                ),
-                h(IconButton, { icon: Trash2, onClick: () => deleteInvoice(invoice) })
-              )
-            ))
-          )
-          : h(EmptyState, { title: "No saved invoices yet", body: "Generate one and it will appear here." })
+        relatedInvoices.length ? h("div", { className: "mt-4 space-y-3" },
+          relatedInvoices.map((invoice) => h("div", { key: invoice.invoiceId, className: "rounded-[22px] bg-[linear-gradient(135deg,#ffffff,#f8fbff)] p-4 shadow-sm" },
+            h("div", { className: "flex items-start justify-between gap-3" },
+              h("div", null,
+                h("p", { className: "font-black text-slate-900" }, invoice.invoiceReference),
+                h("p", { className: "text-sm text-slate-500" }, `${shortDate(invoice.invoiceDate)} | ${invoice.invoiceStatus}`)
+              ),
+              h(IconButton, { icon: Trash2, onClick: () => deleteInvoice(invoice) })
+            )
+          ))
+        ) : h(EmptyState, { title: "No saved invoices yet", body: "Generate one and it will appear here." })
       )
     )
   );
 }
 
-function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice }) {
+function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice, workspaceActions, isCloud }) {
   const [form, setForm] = useState({ clientId: selectedClient?.clientId || "", quoteId: selectedQuote?.quoteId || "", roomId: "", photoType: "Before", caption: "" });
   useEffect(() => {
     setForm((current) => ({
@@ -1576,33 +1569,27 @@ function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice }) 
 
   const rooms = data.rooms.filter((room) => !form.quoteId || room.quoteId === form.quoteId);
 
-  const upload = (file) => {
-    if (!file || !form.clientId || !form.quoteId || !form.roomId) {
-      setNotice("Choose client, quote and room before uploading");
+  const uploadFile = async (file) => {
+    const errors = validatePhotoUpload(file, form);
+    if (errors.length) {
+      setNotice(formatErrors(errors));
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      upsert("photos", {
-        photoId: uid("photo"),
-        clientId: form.clientId,
-        quoteId: form.quoteId,
-        roomId: form.roomId,
-        imageData: reader.result,
-        photoType: form.photoType,
-        caption: form.caption,
-        uploadedDate: today()
-      }, "photoId");
+    try {
+      const photo = await workspaceActions.uploadPhotoFile(file, form);
+      upsert("photos", photo, "photoId");
       setForm({ ...form, caption: "" });
-      setNotice("Photo attached");
-    };
-    reader.readAsDataURL(file);
+      setNotice(isCloud ? "Photo uploaded to cloud storage" : "Photo attached in preview mode");
+    } catch (error) {
+      setNotice(error.message || "Photo upload failed");
+    }
   };
 
   return h("div", { className: "space-y-5" },
     h("section", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
       h("p", { className: "text-[11px] font-bold uppercase tracking-[0.24em] text-auty-gold" }, "Photos & Attachments"),
       h("h2", { className: "text-2xl font-black text-slate-900" }, "Attach room-specific progress photos"),
+      h("p", { className: "mt-2 text-sm text-slate-500" }, "Uploads now target Supabase Storage when cloud mode is active. Files are limited to 5 MB and stay tied to client, quote and room."),
       h("div", { className: "mt-4 grid gap-4 lg:grid-cols-3" },
         h(Field, { label: "Assigned Client", value: form.clientId, options: [{ value: "", label: "Choose client" }, ...data.clients.map((client) => ({ value: client.clientId, label: databaseName(client) }))], onChange: (value) => setForm({ ...form, clientId: value }) }),
         h(Field, { label: "Assigned Quote / Job", value: form.quoteId, options: [{ value: "", label: "Choose quote" }, ...data.quotes.filter((quote) => !form.clientId || quote.clientId === form.clientId).map((quote) => ({ value: quote.quoteId, label: quote.quoteReference }))], onChange: (value) => setForm({ ...form, quoteId: value, roomId: "" }) }),
@@ -1615,7 +1602,7 @@ function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice }) 
             h("p", { className: "mt-3 font-black text-slate-900" }, "Upload photo"),
             h("p", { className: "text-sm text-slate-500" }, "Before, during, after, materials, or damage images")
           ),
-          h("input", { type: "file", accept: "image/*", className: "hidden", onChange: (event) => upload(event.target.files?.[0]) })
+          h("input", { type: "file", accept: "image/*", className: "hidden", onChange: (event) => uploadFile(event.target.files?.[0]) })
         )
       )
     ),
@@ -1624,7 +1611,7 @@ function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice }) 
         const client = data.clients.find((entry) => entry.clientId === photo.clientId);
         const room = data.rooms.find((entry) => entry.roomId === photo.roomId);
         return h("article", { key: photo.photoId, className: "overflow-hidden rounded-[28px] border border-white/70 bg-white/82 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur transition duration-300 hover:-translate-y-1" },
-          h("img", { src: photo.imageData, alt: photo.caption || photo.photoType, className: "h-60 w-full object-cover" }),
+          h("img", { src: photo.imageUrl || photo.imageData, alt: photo.caption || photo.photoType, className: "h-60 w-full object-cover" }),
           h("div", { className: "p-4" },
             h("span", { className: classNames("inline-flex rounded-full px-3 py-1 text-[11px] font-bold ring-1", calendarTint(photo.photoType === "Before" ? "Quote Visit" : photo.photoType === "After" ? "Booked Job" : "Potential Job (Unconfirmed)")) }, photo.photoType),
             h("p", { className: "mt-3 font-black text-slate-900" }, photo.caption || "No caption"),
@@ -1636,23 +1623,9 @@ function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice }) 
   );
 }
 
-function SettingsPanel({ data, update, setShowSettings, setNotice, installToHomeScreen, darkMode }) {
+function SettingsPanel({ data, update, setShowSettings, setNotice, installToHomeScreen, darkMode, exportBackup, importBackupFile, uploadLogoFile, signOutUser, session, isCloud }) {
   const settings = data.settings;
   const patch = (field, value) => update("settings", { ...settings, [field]: value });
-  const exportBackup = () => downloadText(`auty-decorating-backup-${today()}.json`, JSON.stringify(data, null, 2), "application/json");
-  const importBackup = (file) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(reader.result);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...initialState, ...parsed }));
-        window.location.reload();
-      } catch {
-        setNotice("Backup import failed");
-      }
-    };
-    if (file) reader.readAsText(file);
-  };
 
   return h("div", { className: "fixed inset-0 z-50 overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(255,210,145,0.18),transparent_26%),rgba(15,23,42,0.36)] p-4 backdrop-blur-md" },
     h("div", { className: classNames(
@@ -1662,7 +1635,8 @@ function SettingsPanel({ data, update, setShowSettings, setNotice, installToHome
       h("div", { className: "flex items-center justify-between gap-3" },
         h("div", null,
           h("p", { className: "text-[11px] font-bold uppercase tracking-[0.24em] text-auty-gold" }, "Settings"),
-          h("h2", { className: classNames("text-2xl font-black", darkMode ? "text-white" : "text-slate-900") }, "Workspace settings and backups")
+          h("h2", { className: classNames("text-2xl font-black", darkMode ? "text-white" : "text-slate-900") }, "Workspace settings and backups"),
+          h("p", { className: classNames("mt-1 text-sm", darkMode ? "text-white/65" : "text-slate-500") }, isCloud ? `Cloud account: ${session?.user?.email || "Signed in"}` : "Preview mode is active until Supabase is configured.")
         ),
         h(IconButton, { icon: X, onClick: () => setShowSettings(false) })
       ),
@@ -1676,7 +1650,22 @@ function SettingsPanel({ data, update, setShowSettings, setNotice, installToHome
         h(Field, { label: "Business Telephone", value: settings.businessTelephone, onChange: (value) => patch("businessTelephone", value) }),
         h(Field, { label: "Business Email", value: settings.businessEmail, onChange: (value) => patch("businessEmail", value) }),
         h("div", { className: "lg:col-span-2" }, h(Field, { label: "Business Address", value: settings.businessAddress, textarea: true, onChange: (value) => patch("businessAddress", value) })),
-        h("div", { className: "lg:col-span-2" }, h(Field, { label: "Payment Details", value: settings.paymentDetails, textarea: true, onChange: (value) => patch("paymentDetails", value) }))
+        h("div", { className: "lg:col-span-2" }, h(Field, { label: "Payment Details", value: settings.paymentDetails, textarea: true, onChange: (value) => patch("paymentDetails", value) })),
+        h("div", { className: "lg:col-span-2" }, h(Field, { label: "Payment Terms", value: settings.paymentTerms, textarea: true, onChange: (value) => patch("paymentTerms", value) })),
+        h("div", { className: "lg:col-span-2" }, h(Field, { label: "Quotation Terms", value: settings.quoteTerms, textarea: true, onChange: (value) => patch("quoteTerms", value) })),
+        h("div", { className: "lg:col-span-2" }, h(Field, { label: "Acceptance Notes", value: settings.acceptanceNotes, textarea: true, onChange: (value) => patch("acceptanceNotes", value) })),
+        h(Field, { label: "Calendar Sync Provider", value: settings.calendarSyncProvider || "", options: ["", "Google Calendar", "Apple Calendar"], onChange: (value) => patch("calendarSyncProvider", value) }),
+        h(Field, { label: "Calendar Sync Ready", value: settings.calendarSyncEnabled ? "Yes" : "No", options: ["Yes", "No"], onChange: (value) => patch("calendarSyncEnabled", value === "Yes") }),
+        h("div", { className: "lg:col-span-2 rounded-[24px] border border-slate-200 bg-[linear-gradient(135deg,#fff8ee,#f5faff)] p-4" },
+          h("p", { className: "text-sm font-black text-slate-900" }, "Business Logo"),
+          h("p", { className: "mt-1 text-sm text-slate-500" }, "Used in quotation and invoice PDFs."),
+          settings.logoUrl && h("img", { src: settings.logoUrl, alt: "Business logo", className: "mt-3 h-20 rounded-2xl bg-white p-2 shadow-sm" }),
+          h("label", { className: "mt-4 inline-flex min-h-[52px] cursor-pointer items-center gap-2 rounded-[20px] bg-slate-900 px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-slate-800" },
+            h(ImagePlus, { size: 18 }),
+            "Upload Logo",
+            h("input", { type: "file", accept: "image/*", className: "hidden", onChange: (event) => uploadLogoFile(event.target.files?.[0]) })
+          )
+        )
       ),
       h("div", { className: "mt-5 flex flex-wrap gap-3" },
         h(ActionButton, { label: "Add App To Home Screen", onClick: installToHomeScreen, icon: Home, variant: "soft" }),
@@ -1684,11 +1673,19 @@ function SettingsPanel({ data, update, setShowSettings, setNotice, installToHome
         h("label", { className: "inline-flex min-h-[52px] cursor-pointer items-center gap-2 rounded-[20px] bg-slate-900 px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-slate-800" },
           h(Upload, { size: 18 }),
           "Import JSON Backup",
-          h("input", { type: "file", accept: "application/json", className: "hidden", onChange: (event) => importBackup(event.target.files?.[0]) })
-        )
+          h("input", { type: "file", accept: "application/json", className: "hidden", onChange: (event) => importBackupFile(event.target.files?.[0]) })
+        ),
+        isCloud && h(ActionButton, { label: "Sign Out", onClick: signOutUser, icon: LogOut, variant: "danger" })
       )
     )
   );
+}
+
+function QuickAction({ label, onClick, icon: Icon, tone }) {
+  return h("button", {
+    onClick,
+    className: classNames("rounded-[22px] bg-gradient-to-br p-4 text-left font-black transition duration-300 hover:-translate-y-1 hover:shadow-xl", tone)
+  }, h(Icon, { size: 20 }), h("p", { className: "mt-4 text-sm" }, label));
 }
 
 function Field({ label, value, onChange, type = "text", options, textarea }) {
@@ -1697,10 +1694,10 @@ function Field({ label, value, onChange, type = "text", options, textarea }) {
   return h("label", { className: "block text-sm font-semibold text-slate-700" },
     label,
     options
-      ? h("select", { value: value ?? "", onChange: (event) => onChange(event.target.value), className: base }, optionList.map((option) => h("option", { key: String(option.value), value: option.value }, option.label)))
+      ? h("select", { value: value ?? "", onChange: (event) => onChange(event.target.value), className: base }, optionList.map((option) => h("option", { key: String(option.value), value: option.value }, option.label || "Not set")))
       : textarea
         ? h("textarea", { rows: 4, value: value ?? "", onChange: (event) => onChange(event.target.value), className: base })
-        : h("input", { type, step: type === "number" ? "0.01" : undefined, value: value ?? "", onChange: (event) => onChange(type === "number" ? number(event.target.value) : event.target.value), className: base })
+        : h("input", { type, step: type === "number" ? "0.01" : undefined, value: value ?? "", onChange: (event) => onChange(type === "number" ? Number(event.target.value) : event.target.value), className: base })
   );
 }
 
@@ -1728,9 +1725,7 @@ function SelectPill({ label, active, onClick, inverse = false }) {
     onClick,
     className: classNames(
       "rounded-full px-4 py-2 text-sm font-black transition duration-300",
-      inverse
-        ? active ? "bg-white text-slate-900 shadow-md" : "bg-white/10 text-white/78 hover:bg-white/16 hover:text-white"
-        : active ? "bg-slate-900 text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+      inverse ? active ? "bg-white text-slate-900 shadow-md" : "bg-white/10 text-white/78 hover:bg-white/16 hover:text-white" : active ? "bg-slate-900 text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
     )
   }, label);
 }
@@ -1742,10 +1737,7 @@ function SelectCard({ label, active, onClick, icon: Icon }) {
       "rounded-[24px] border p-4 text-left transition duration-300",
       active ? "border-slate-900 bg-[linear-gradient(135deg,#fff7ee,#f4f8ff)] shadow-[0_14px_30px_rgba(24,34,48,0.12),0_0_30px_rgba(240,181,82,0.16)]" : "border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(255,255,255,0.7))] hover:-translate-y-0.5 hover:shadow-md"
     )
-  },
-    h(Icon, { size: 20, className: active ? "text-auty-gold" : "text-slate-400" }),
-    h("p", { className: "mt-4 font-black text-slate-900" }, label)
-  );
+  }, h(Icon, { size: 20, className: active ? "text-auty-gold" : "text-slate-400" }), h("p", { className: "mt-4 font-black text-slate-900" }, label));
 }
 
 function EmptyState({ title, body }) {
@@ -1777,9 +1769,7 @@ function InfoRow({ label, value }) {
 }
 
 function LinkChip({ href, label, icon: Icon }) {
-  if (!href) {
-    return h("span", { className: "inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-400" }, h(Icon, { size: 14 }), label);
-  }
+  if (!href) return h("span", { className: "inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-400" }, h(Icon, { size: 14 }), label);
   return h("a", { href, target: "_blank", rel: "noreferrer", className: "inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-xs font-bold text-white transition hover:-translate-y-0.5" }, h(Icon, { size: 14 }), label);
 }
 
