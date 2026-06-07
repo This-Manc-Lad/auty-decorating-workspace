@@ -70,89 +70,66 @@ alter table public.photos enable row level security;
 alter table public.invoices enable row level security;
 alter table public.calendar_entries enable row level security;
 
-create policy "workspace settings own rows"
-on public.workspace_settings
-for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+do $$
+begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'workspace_settings' and policyname = 'workspace settings own rows') then
+    create policy "workspace settings own rows" on public.workspace_settings for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
 
-create policy "clients own rows"
-on public.clients
-for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'clients' and policyname = 'clients own rows') then
+    create policy "clients own rows" on public.clients for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
 
-create policy "quotes own rows"
-on public.quotes
-for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'quotes' and policyname = 'quotes own rows') then
+    create policy "quotes own rows" on public.quotes for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
 
-create policy "rooms own rows"
-on public.rooms
-for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'rooms' and policyname = 'rooms own rows') then
+    create policy "rooms own rows" on public.rooms for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
 
-create policy "photos own rows"
-on public.photos
-for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'photos' and policyname = 'photos own rows') then
+    create policy "photos own rows" on public.photos for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
 
-create policy "invoices own rows"
-on public.invoices
-for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'invoices' and policyname = 'invoices own rows') then
+    create policy "invoices own rows" on public.invoices for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
 
-create policy "calendar entries own rows"
-on public.calendar_entries
-for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'calendar_entries' and policyname = 'calendar entries own rows') then
+    create policy "calendar entries own rows" on public.calendar_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+end $$;
 
 insert into storage.buckets (id, name, public)
 values ('auty-media', 'auty-media', false)
-on conflict (id) do nothing;
+on conflict (id) do update set public = false;
 
-create policy "auty media upload own folders"
-on storage.objects
-for insert
-to authenticated
-with check (
-  bucket_id = 'auty-media'
-  and auth.uid()::text = (storage.foldername(name))[1]
-);
+do $$
+begin
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'auty media upload own folders') then
+    create policy "auty media upload own folders" on storage.objects for insert to authenticated with check (
+      bucket_id = 'auty-media' and auth.uid()::text = (storage.foldername(name))[1]
+    );
+  end if;
 
-create policy "auty media read own folders"
-on storage.objects
-for select
-to authenticated
-using (
-  bucket_id = 'auty-media'
-  and auth.uid()::text = (storage.foldername(name))[1]
-);
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'auty media read own folders') then
+    create policy "auty media read own folders" on storage.objects for select to authenticated using (
+      bucket_id = 'auty-media' and auth.uid()::text = (storage.foldername(name))[1]
+    );
+  end if;
 
-create policy "auty media update own folders"
-on storage.objects
-for update
-to authenticated
-using (
-  bucket_id = 'auty-media'
-  and auth.uid()::text = (storage.foldername(name))[1]
-)
-with check (
-  bucket_id = 'auty-media'
-  and auth.uid()::text = (storage.foldername(name))[1]
-);
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'auty media update own folders') then
+    create policy "auty media update own folders" on storage.objects for update to authenticated using (
+      bucket_id = 'auty-media' and auth.uid()::text = (storage.foldername(name))[1]
+    ) with check (
+      bucket_id = 'auty-media' and auth.uid()::text = (storage.foldername(name))[1]
+    );
+  end if;
 
-create policy "auty media delete own folders"
-on storage.objects
-for delete
-to authenticated
-using (
-  bucket_id = 'auty-media'
-  and auth.uid()::text = (storage.foldername(name))[1]
-);
-
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'auty media delete own folders') then
+    create policy "auty media delete own folders" on storage.objects for delete to authenticated using (
+      bucket_id = 'auty-media' and auth.uid()::text = (storage.foldername(name))[1]
+    );
+  end if;
+end $$;
