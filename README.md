@@ -1,37 +1,36 @@
 # AUTY Decorating Workspace
 
-AUTY Decorating Workspace is a browser-based React workspace for a sole trader or small decorating business. This version keeps the existing AUTY flow intact while preparing the app for a production-ready next phase with Supabase auth, cloud data, storage-backed media, improved PDFs, and stronger validation.
+AUTY Decorating Workspace is a browser-based React workspace for a sole trader or small decorating business. It supports client records, room-by-room quotations, invoices, calendar entries, photo attachments, JSON backups, and Supabase-backed cloud mode.
 
-## What Changed In This Phase
+## Current Status
 
-- Replaced the browser-only data model with a Supabase-ready data layer.
-- Added authentication scaffolding with per-user workspace separation.
-- Added Supabase Storage support for photo attachments and business logo uploads.
-- Preserved the existing tab flow:
-  - Dashboard
-  - Calendar
-  - Client Database
-  - Current Job
-- Kept the room-by-room quoting workflow, VAT, discounts, deposit handling, invoice generation, and `.ics` export.
-- Upgraded quotation and invoice PDF generation to support:
-  - uploaded logo
-  - business details
-  - payment terms
-  - acceptance notes
-  - cleaner branded layout
-- Kept JSON import/export as a safety backup path rather than the main store.
-- Added validation for:
-  - client details
-  - room input
-  - quote totals
-  - invoice due dates
-  - photo upload size/type
+This app can run in two modes:
+
+### Cloud mode
+
+When Supabase config is available:
+
+- users sign in with email/password
+- data is separated per authenticated user
+- clients, quotes, rooms, invoices, calendar entries, and settings are stored in Supabase
+- photos and logos are stored in a private Supabase Storage bucket
+- signed media URLs are regenerated when the workspace loads
+
+### Preview mode
+
+When Supabase is not configured:
+
+- the app still opens for preview/testing
+- legacy browser data can be loaded from localStorage
+- JSON backup/export still works
+- uploaded preview images are stored locally in the browser only
 
 ## Project Structure
 
 ```text
 index.html
 package.json
+vite.config.js
 src/
   main.js
   styles.css
@@ -47,11 +46,48 @@ supabase/
 .env.example
 ```
 
+## What This Phase Includes
+
+- Supabase-ready data layer
+- Authentication scaffolding with per-user workspace separation
+- Supabase Storage support for photo attachments and business logo uploads
+- Existing app flow preserved:
+  - Dashboard
+  - Calendar
+  - Client Database
+  - Current Job
+- Room-by-room quoting workflow
+- VAT, discounts, deposit handling, invoice generation, and `.ics` export
+- Branded quotation and invoice PDFs with:
+  - uploaded logo
+  - business details
+  - payment terms
+  - acceptance notes
+  - room breakdown
+- JSON import/export as a backup path
+- Validation for:
+  - client details
+  - room input
+  - quote totals
+  - invoice due dates
+  - photo upload size/type
+
+## Recent Hardening Fixes
+
+- Pinned frontend dependency versions instead of using `latest`.
+- Simplified the Vite config and added relative asset output with `base: "./"` for GitHub Pages/static hosting.
+- Made `supabase/schema.sql` safer to rerun by wrapping policy creation in existence checks.
+- Ensured the `auty-media` bucket remains private if the schema is rerun.
+- Changed cloud media persistence so expiring signed URLs are not stored as durable database data.
+- Rehydrated photo/logo signed URLs from their storage paths when workspace data loads.
+- Reused the same generated photo ID for both the database record and the uploaded storage filename.
+- Added storage cleanup when a cloud photo record is deleted.
+
 ## Supabase Setup
 
 1. Create a Supabase project.
-2. Run the SQL in [supabase/schema.sql](/Users/nickjones/Documents/Auty%20App/supabase/schema.sql).
-3. Create a `.env` file based on [.env.example](/Users/nickjones/Documents/Auty%20App/.env.example):
+2. Run the SQL in [`supabase/schema.sql`](./supabase/schema.sql).
+3. Create a `.env` file based on [`.env.example`](./.env.example):
 
 ```bash
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
@@ -63,40 +99,29 @@ VITE_SUPABASE_ANON_KEY=your-public-anon-key
 
 ## Running The App
 
-If you have Node and npm installed:
-
 ```bash
 npm install
 npm run dev
 ```
 
-Then open the local Vite URL, usually `http://localhost:5173`.
+Then open the local Vite URL, usually:
 
-This repository also still supports direct static browser loading through [index.html](/Users/nickjones/Documents/Auty%20App/index.html) using import maps and CDN-delivered dependencies, which is useful for previewing when package tooling is not available.
+```text
+http://localhost:5173
+```
 
-## Current Runtime Modes
+For a production build:
 
-### Cloud mode
+```bash
+npm run build
+npm run preview
+```
 
-When `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set:
-
-- users sign in with email/password
-- data is separated per authenticated user
-- clients, quotes, rooms, invoices, calendar entries, and settings are stored in Supabase
-- photos and logos use Supabase Storage
-
-### Preview mode
-
-When Supabase is not configured:
-
-- the app still opens
-- legacy browser data is loaded for preview/testing
-- localStorage remains only as a fallback preview path
-- JSON backup/export still works
+The app can also still be previewed directly through [`index.html`](./index.html) using import maps and CDN-delivered dependencies, which is useful when package tooling is not available.
 
 ## Data Model Direction
 
-The production-ready step uses dedicated Supabase tables per entity with a `payload` JSON column and `user_id` ownership:
+The current Supabase phase uses dedicated tables per entity with a `payload` JSON column and `user_id` ownership:
 
 - `workspace_settings`
 - `clients`
@@ -106,7 +131,7 @@ The production-ready step uses dedicated Supabase tables per entity with a `payl
 - `invoices`
 - `calendar_entries`
 
-This keeps the current UI model stable while making it straightforward to normalise further in a later backend phase.
+This keeps the current UI model stable while leaving room to normalise the database further later.
 
 ## Validation Included
 
@@ -129,30 +154,18 @@ This keeps the current UI model stable while making it straightforward to normal
 
 ## Calendar Sync Preparation
 
-The app still exports `.ics` files, but calendar entries are now structured with future sync fields so Google Calendar or Apple Calendar sync can be layered on later without replacing the current model:
+The app still exports `.ics` files, but calendar entries include future sync fields so Google Calendar or Apple Calendar sync can be layered on later:
 
 - `syncStatus`
 - `externalCalendarId`
 - `externalEventId`
 - `externalProvider`
 
-## Production-Phase Notes
+## Still Worth Doing Next
 
-This phase prepares the app well for a real rollout, but a few things still need finishing once Supabase credentials are available:
-
-- test the auth flow against a live Supabase project
-- verify RLS and storage policies in the actual environment
-- run a full Vite production build once package tooling is installed locally
-- optionally replace JSON `payload` tables with more fully normalised relational tables later
-- add password reset, invite flow, and email templates if multiple staff accounts are planned
-- add actual Google/Apple calendar sync adapters on top of the prepared calendar model
-
-## Dependencies
-
-- React
-- Vite
-- Tailwind CSS
-- jsPDF
-- lucide-react
-- `@supabase/supabase-js`
-
+- Run a full local `npm install && npm run build` check.
+- Test the full live Supabase flow from sign-up to quote, invoice, photo upload, backup export, and delete.
+- Add password reset.
+- Add an invite/staff flow if multiple decorators will use one business workspace.
+- Add CI so GitHub checks the build automatically on every commit.
+- Eventually split `src/main.js` into smaller feature components.
