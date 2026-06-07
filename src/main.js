@@ -43,7 +43,7 @@ const VAT_RATE = 20;
 const MAIN_TABS = ["Dashboard", "Calendar", "Client Database", "Current Job"];
 const JOB_TABS = ["Room Quoter", "Job Overview", "Invoice Generator", "Photos & Attachments"];
 const QUOTE_STATUSES = ["Draft", "Sent", "Awaiting Approval", "Accepted", "In Progress", "Complete", "Invoice Due", "Paid"];
-const CALENDAR_TYPES = ["Personal Time", "Other Work", "Booked Job", "Quote Visit", "Invoice Due", "Other"];
+const CALENDAR_TYPES = ["Personal Time", "Potential Job (Unconfirmed)", "Other Work", "Booked Job", "Quote Visit", "Invoice Due", "Other"];
 const PHOTO_TYPES = ["Before", "During", "After", "Damage", "Materials", "Other"];
 const ROOM_PRESETS = [
   { key: "Living Room", label: "Living", icon: Sofa },
@@ -102,7 +102,8 @@ const initialState = {
     businessEmail: "",
     businessTelephone: "",
     businessAddress: "",
-    paymentDetails: "Bank transfer details to be added."
+    paymentDetails: "Bank transfer details to be added.",
+    themeMode: "Light"
   }
 };
 
@@ -279,6 +280,7 @@ function calculateQuote(quote, rooms, settings) {
 
 function calendarColour(type) {
   if (type === "Personal Time") return "bg-violet-400";
+  if (type === "Potential Job (Unconfirmed)") return "bg-amber-300";
   if (type === "Other Work") return "bg-cyan-400";
   if (type === "Booked Job") return "bg-emerald-400";
   if (type === "Quote Visit") return "bg-amber-400";
@@ -288,6 +290,7 @@ function calendarColour(type) {
 
 function calendarTint(type) {
   if (type === "Personal Time") return "bg-violet-50 text-violet-700 ring-violet-200";
+  if (type === "Potential Job (Unconfirmed)") return "bg-amber-50 text-amber-700 ring-amber-200";
   if (type === "Other Work") return "bg-cyan-50 text-cyan-700 ring-cyan-200";
   if (type === "Booked Job") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   if (type === "Quote Visit") return "bg-amber-50 text-amber-700 ring-amber-200";
@@ -360,6 +363,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [notice, setNotice] = useState("");
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
+  const darkMode = data.settings?.themeMode === "Dark";
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -633,17 +637,28 @@ function App() {
     setNotice("Use your browser menu and choose Add to Home Screen");
   };
 
-  return h("div", { className: "min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(255,207,138,0.34),_transparent_26%),radial-gradient(circle_at_20%_75%,_rgba(105,201,255,0.18),_transparent_24%),radial-gradient(circle_at_top_right,_rgba(232,141,255,0.18),_transparent_25%),linear-gradient(180deg,_#fbf5ec_0%,_#f7fbff_55%,_#fff6ef_100%)] pb-28 text-auty-ink" },
+  return h("div", { className: classNames(
+    "min-h-screen pb-28 transition-colors duration-500",
+    darkMode
+      ? "bg-[radial-gradient(circle_at_top_left,_rgba(240,181,82,0.16),_transparent_24%),radial-gradient(circle_at_20%_70%,_rgba(71,187,255,0.18),_transparent_26%),radial-gradient(circle_at_top_right,_rgba(187,131,255,0.16),_transparent_26%),linear-gradient(180deg,_#09111f_0%,_#101a2d_52%,_#141e32_100%)] text-slate-100"
+      : "bg-[radial-gradient(circle_at_top_left,_rgba(255,207,138,0.34),_transparent_26%),radial-gradient(circle_at_20%_75%,_rgba(105,201,255,0.18),_transparent_24%),radial-gradient(circle_at_top_right,_rgba(232,141,255,0.18),_transparent_25%),linear-gradient(180deg,_#fbf5ec_0%,_#f7fbff_55%,_#fff6ef_100%)] text-auty-ink"
+  ) },
     h("div", { className: "mx-auto flex min-h-screen max-w-7xl flex-col px-4 pb-8 pt-4 sm:px-6" },
-      h("header", { className: "sticky top-0 z-30 mb-5 rounded-[28px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.46))] px-4 py-4 shadow-[0_20px_50px_rgba(24,34,48,0.1),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl" },
+      h("header", { className: classNames(
+        "sticky top-0 z-30 mb-5 rounded-[28px] px-4 py-4 shadow-[0_20px_50px_rgba(24,34,48,0.1),0_0_60px_rgba(240,181,82,0.12),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl transition-colors duration-500",
+        darkMode ? "border border-white/10 bg-[linear-gradient(135deg,rgba(15,23,42,0.72),rgba(30,41,59,0.46))]" : "border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.46))]"
+      ) },
         h("div", { className: "flex items-center justify-between gap-4" },
           h("div", null,
             h("p", { className: "text-[11px] font-bold uppercase tracking-[0.28em] text-auty-gold" }, "Auty Decorating Workspace App"),
-            h("h1", { className: "mt-1 text-2xl font-black tracking-tight text-slate-900" }, activeTab === "Current Job" ? jobTab : activeTab)
+            h("h1", { className: classNames("mt-1 text-2xl font-black tracking-tight", darkMode ? "text-white" : "text-slate-900") }, activeTab === "Current Job" ? jobTab : activeTab)
           ),
           h("button", {
             onClick: () => setShowSettings(true),
-            className: "grid h-12 w-12 place-items-center rounded-2xl bg-slate-900 text-white transition duration-300 hover:-translate-y-0.5 hover:bg-slate-800"
+            className: classNames(
+              "grid h-12 w-12 place-items-center rounded-2xl text-white transition duration-300 hover:-translate-y-0.5",
+              darkMode ? "bg-white/10 shadow-[0_0_28px_rgba(96,165,250,0.22)] hover:bg-white/16" : "bg-slate-900 shadow-[0_0_28px_rgba(240,181,82,0.2)] hover:bg-slate-800"
+            )
           }, h(SettingsIcon, { size: 20 }))
         )
       ),
@@ -654,20 +669,23 @@ function App() {
         activeTab === "Current Job" && h(CurrentJobPage, { ...pageProps, jobTab, setJobTab })
       )
     ),
-    h(FloatingNav, { activeTab, setActiveTab }),
-    showSettings && h(SettingsPanel, { data, update, setShowSettings, setNotice, installToHomeScreen }),
-    notice && h("div", { className: "fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-xl animate-[slideIn_.3s_ease]" }, notice)
+    h(FloatingNav, { activeTab, setActiveTab, darkMode }),
+    showSettings && h(SettingsPanel, { data, update, setShowSettings, setNotice, installToHomeScreen, darkMode }),
+    notice && h("div", { className: classNames("fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-full px-5 py-3 text-sm font-bold text-white shadow-xl animate-[slideIn_.3s_ease]", darkMode ? "bg-slate-800/95" : "bg-slate-900") }, notice)
   );
 }
 
-function FloatingNav({ activeTab, setActiveTab }) {
+function FloatingNav({ activeTab, setActiveTab, darkMode }) {
   const items = [
     { label: "Calendar", icon: CalendarDays },
     { label: "Dashboard", icon: ClipboardList },
     { label: "Client Database", icon: Users },
     { label: "Current Job", icon: Home }
   ];
-  return h("nav", { className: "fixed bottom-4 left-1/2 z-40 w-[min(92vw,520px)] -translate-x-1/2 rounded-[28px] border border-white/60 bg-slate-950/92 p-2 shadow-[0_20px_60px_rgba(15,23,42,0.45)] backdrop-blur-xl" },
+  return h("nav", { className: classNames(
+    "fixed bottom-4 left-1/2 z-40 w-[min(92vw,520px)] -translate-x-1/2 rounded-[28px] border p-2 shadow-[0_20px_60px_rgba(15,23,42,0.45),0_0_40px_rgba(240,181,82,0.14)] backdrop-blur-xl transition-colors duration-500",
+    darkMode ? "border-white/10 bg-slate-950/70" : "border-white/60 bg-slate-950/92"
+  ) },
     h("div", { className: "grid grid-cols-4 gap-2" },
       items.map((item) => {
         const Icon = item.icon;
@@ -686,10 +704,10 @@ function FloatingNav({ activeTab, setActiveTab }) {
 }
 
 function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTab }) {
-  const upcoming = data.calendarEntries.filter((entry) => entry.type === "Confirmed Job" && entry.startDate >= today()).length;
+  const upcoming = data.calendarEntries.filter((entry) => entry.type === "Booked Job" && entry.startDate >= today()).length;
   const awaiting = data.quotes.filter((quote) => quote.quoteStatus === "Awaiting Approval" || quote.quoteStatus === "Sent").length;
   const invoices = data.invoices.filter((invoice) => invoice.invoiceStatus !== "Paid").length;
-  const blocked = data.calendarEntries.filter((entry) => entry.type === "Personal / Blocked Time").length;
+  const blocked = data.calendarEntries.filter((entry) => entry.type === "Personal Time").length;
   const recentQuotes = data.quotes.slice(0, 4);
   const latestClients = data.clients.slice(0, 4);
   const statCards = [
@@ -766,6 +784,7 @@ function QuickAction({ label, onClick, icon: Icon, tone }) {
 
 function CalendarPage({ data, upsert, setNotice }) {
   const [monthView, setMonthView] = useState(new Date());
+  const [activeDotId, setActiveDotId] = useState("");
   const [entry, setEntry] = useState({ title: "", type: "Personal Time", startDate: today(), endDate: today(), clientId: "", quoteId: "", notes: "" });
   const monthGrid = buildMonthGrid(monthView, data.calendarEntries);
   const visibleEntries = data.calendarEntries
@@ -802,7 +821,7 @@ function CalendarPage({ data, upsert, setNotice }) {
         monthGrid.map((day) => h("div", {
           key: `${day.date}-${day.inMonth}`,
           className: classNames(
-            "min-h-[110px] rounded-[30px] border p-3 transition duration-300 hover:-translate-y-0.5",
+            "relative min-h-[110px] rounded-[30px] border p-3 transition duration-300 hover:-translate-y-0.5",
             day.inMonth ? "border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.8),rgba(255,250,244,0.56))] shadow-[0_16px_30px_rgba(24,34,48,0.06),inset_0_1px_0_rgba(255,255,255,0.8)]" : "border-white/40 bg-white/35 text-slate-400"
           )
         },
@@ -810,11 +829,22 @@ function CalendarPage({ data, upsert, setNotice }) {
             h("span", { className: classNames("grid h-8 w-8 place-items-center rounded-2xl text-sm font-black", day.date === today() ? "bg-slate-900 text-white" : "text-slate-700") }, new Date(`${day.date}T12:00:00`).getDate())
           ),
           h("div", { className: "mt-6 flex flex-wrap gap-2" },
-            day.entries.slice(0, 5).map((entryItem) => h("span", {
+            day.entries.slice(0, 5).map((entryItem) => h("button", {
               key: entryItem.calendarEntryId,
+              type: "button",
               title: `${entryItem.type}: ${entryItem.title}`,
-              className: classNames("h-3.5 w-3.5 rounded-full shadow-[0_0_16px_rgba(255,255,255,0.55)] ring-2 ring-white/70", calendarColour(entryItem.type))
-            })),
+              onMouseEnter: () => setActiveDotId(entryItem.calendarEntryId),
+              onMouseLeave: () => setActiveDotId((current) => current === entryItem.calendarEntryId ? "" : current),
+              onClick: () => setActiveDotId((current) => current === entryItem.calendarEntryId ? "" : entryItem.calendarEntryId),
+              className: classNames("relative h-3.5 w-3.5 rounded-full shadow-[0_0_20px_rgba(255,255,255,0.55)] ring-2 ring-white/70 transition hover:scale-110", calendarColour(entryItem.type))
+            },
+              activeDotId === entryItem.calendarEntryId && h("div", { className: "absolute left-1/2 top-5 z-20 w-44 -translate-x-1/2 rounded-2xl border border-white/70 bg-white/92 p-3 text-left shadow-[0_20px_45px_rgba(24,34,48,0.16)] backdrop-blur-xl" },
+                h("p", { className: "text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400" }, entryItem.type),
+                h("p", { className: "mt-1 text-xs font-black text-slate-900" }, entryItem.title),
+                h("p", { className: "mt-1 text-[11px] text-slate-500" }, `${shortDate(entryItem.startDate)} to ${shortDate(entryItem.endDate)}`),
+                entryItem.notes && h("p", { className: "mt-1 text-[11px] text-slate-500" }, entryItem.notes)
+              )
+            )),
             day.entries.length > 5 && h("p", { className: "text-[11px] font-bold text-slate-400" }, `+${day.entries.length - 5}`)
           )
         ))
@@ -847,7 +877,7 @@ function CalendarPage({ data, upsert, setNotice }) {
                 quoteId: value,
                 clientId: quote?.clientId || entry.clientId,
                 title: quote ? `${displayName(client)} decorating job` : entry.title,
-                type: quote ? "Proposed Job" : entry.type,
+                type: quote ? "Potential Job (Unconfirmed)" : entry.type,
                 startDate: quote?.proposedStartDate || entry.startDate,
                 endDate: calc?.completionDate || entry.endDate,
                 notes: quote ? quote.quoteReference : entry.notes
@@ -1221,7 +1251,7 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
       ),
       h("div", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
         h("h3", { className: "text-lg font-black text-slate-900" }, "Room"),
-        h("div", { className: "mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" },
+        h("div", { className: "mt-4 grid grid-cols-3 gap-3 xl:grid-cols-4" },
           ROOM_PRESETS.map((room) => h(SelectCard, {
             key: room.key,
             active: draft.roomPreset === room.key,
@@ -1596,7 +1626,7 @@ function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice }) 
         return h("article", { key: photo.photoId, className: "overflow-hidden rounded-[28px] border border-white/70 bg-white/82 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur transition duration-300 hover:-translate-y-1" },
           h("img", { src: photo.imageData, alt: photo.caption || photo.photoType, className: "h-60 w-full object-cover" }),
           h("div", { className: "p-4" },
-            h("span", { className: classNames("inline-flex rounded-full px-3 py-1 text-[11px] font-bold ring-1", calendarTint(photo.photoType === "Before" ? "Quote Visit" : photo.photoType === "After" ? "Confirmed Job" : "Proposed Job")) }, photo.photoType),
+            h("span", { className: classNames("inline-flex rounded-full px-3 py-1 text-[11px] font-bold ring-1", calendarTint(photo.photoType === "Before" ? "Quote Visit" : photo.photoType === "After" ? "Booked Job" : "Potential Job (Unconfirmed)")) }, photo.photoType),
             h("p", { className: "mt-3 font-black text-slate-900" }, photo.caption || "No caption"),
             h("p", { className: "mt-1 text-sm text-slate-500" }, `${displayName(client)} | ${room?.roomName || "Room"} | ${shortDate(photo.uploadedDate)}`)
           )
@@ -1606,7 +1636,7 @@ function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice }) 
   );
 }
 
-function SettingsPanel({ data, update, setShowSettings, setNotice, installToHomeScreen }) {
+function SettingsPanel({ data, update, setShowSettings, setNotice, installToHomeScreen, darkMode }) {
   const settings = data.settings;
   const patch = (field, value) => update("settings", { ...settings, [field]: value });
   const exportBackup = () => downloadText(`auty-decorating-backup-${today()}.json`, JSON.stringify(data, null, 2), "application/json");
@@ -1624,12 +1654,15 @@ function SettingsPanel({ data, update, setShowSettings, setNotice, installToHome
     if (file) reader.readAsText(file);
   };
 
-  return h("div", { className: "fixed inset-0 z-50 bg-[radial-gradient(circle_at_top_left,rgba(255,210,145,0.18),transparent_26%),rgba(15,23,42,0.36)] backdrop-blur-md" },
-    h("div", { className: "mx-auto mt-6 w-[min(94vw,860px)] rounded-[34px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.56))] p-5 shadow-[0_30px_80px_rgba(24,34,48,0.22),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-2xl" },
+  return h("div", { className: "fixed inset-0 z-50 overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(255,210,145,0.18),transparent_26%),rgba(15,23,42,0.36)] p-4 backdrop-blur-md" },
+    h("div", { className: classNames(
+      "mx-auto mt-2 max-h-[calc(100vh-2rem)] w-[min(94vw,860px)] overflow-y-auto rounded-[34px] p-5 shadow-[0_30px_80px_rgba(24,34,48,0.22),0_0_60px_rgba(240,181,82,0.14),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-2xl",
+      darkMode ? "border border-white/10 bg-[linear-gradient(135deg,rgba(15,23,42,0.88),rgba(30,41,59,0.7))]" : "border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.56))]"
+    ) },
       h("div", { className: "flex items-center justify-between gap-3" },
         h("div", null,
           h("p", { className: "text-[11px] font-bold uppercase tracking-[0.24em] text-auty-gold" }, "Settings"),
-          h("h2", { className: "text-2xl font-black text-slate-900" }, "Workspace settings and backups")
+          h("h2", { className: classNames("text-2xl font-black", darkMode ? "text-white" : "text-slate-900") }, "Workspace settings and backups")
         ),
         h(IconButton, { icon: X, onClick: () => setShowSettings(false) })
       ),
@@ -1639,6 +1672,7 @@ function SettingsPanel({ data, update, setShowSettings, setNotice, installToHome
         h(Field, { label: "VAT Enabled", value: settings.vatEnabled ? "Yes" : "No", options: ["Yes", "No"], onChange: (value) => patch("vatEnabled", value === "Yes") }),
         h(Field, { label: "VAT Rate", value: settings.vatRate, type: "number", onChange: (value) => patch("vatRate", value) }),
         h(Field, { label: "Default Deposit", value: settings.defaultDeposit, options: ["No Deposit", "10%", "20%", "25%", "30%", "50%"], onChange: (value) => patch("defaultDeposit", value) }),
+        h(Field, { label: "Theme Mode", value: settings.themeMode || "Light", options: ["Light", "Dark"], onChange: (value) => patch("themeMode", value) }),
         h(Field, { label: "Business Telephone", value: settings.businessTelephone, onChange: (value) => patch("businessTelephone", value) }),
         h(Field, { label: "Business Email", value: settings.businessEmail, onChange: (value) => patch("businessEmail", value) }),
         h("div", { className: "lg:col-span-2" }, h(Field, { label: "Business Address", value: settings.businessAddress, textarea: true, onChange: (value) => patch("businessAddress", value) })),
@@ -1674,18 +1708,18 @@ function ActionButton({ label, onClick, icon: Icon, variant = "primary", classNa
   const styles = variant === "danger"
     ? "bg-[linear-gradient(135deg,#d95454,#b6304a)] text-white"
     : variant === "soft"
-      ? "bg-[linear-gradient(135deg,#eef4ff,#f7f9ff)] text-slate-900"
-      : "bg-[linear-gradient(135deg,#f0b552,#df7a44)] text-white";
+      ? "bg-[linear-gradient(135deg,rgba(238,244,255,0.92),rgba(247,249,255,0.8))] text-slate-900 shadow-[0_0_22px_rgba(96,165,250,0.12)]"
+      : "bg-[linear-gradient(135deg,#f0b552,#df7a44)] text-white shadow-[0_0_26px_rgba(240,181,82,0.22)]";
   return h("button", {
     onClick,
-    className: classNames("inline-flex min-h-[52px] items-center justify-center gap-2 rounded-[20px] px-5 py-3 text-sm font-black shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg", styles, className)
+    className: classNames("inline-flex min-h-[52px] items-center justify-center gap-2 rounded-[20px] px-5 py-3 text-sm font-black transition duration-300 hover:-translate-y-0.5 hover:shadow-lg", styles, className)
   }, Icon && h(Icon, { size: 18 }), label);
 }
 
 function IconButton({ icon: Icon, onClick }) {
   return h("button", {
     onClick,
-    className: "grid h-11 w-11 place-items-center rounded-[18px] bg-slate-100 text-slate-700 transition duration-300 hover:-translate-y-0.5 hover:bg-slate-900 hover:text-white"
+    className: "grid h-11 w-11 place-items-center rounded-[18px] border border-white/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(247,248,251,0.68))] text-slate-700 shadow-[0_0_18px_rgba(255,255,255,0.24)] transition duration-300 hover:-translate-y-0.5 hover:bg-slate-900 hover:text-white"
   }, h(Icon, { size: 18 }));
 }
 
@@ -1706,7 +1740,7 @@ function SelectCard({ label, active, onClick, icon: Icon }) {
     onClick,
     className: classNames(
       "rounded-[24px] border p-4 text-left transition duration-300",
-      active ? "border-slate-900 bg-[linear-gradient(135deg,#fff7ee,#f4f8ff)] shadow-[0_14px_30px_rgba(24,34,48,0.12)]" : "border-slate-200 bg-white hover:-translate-y-0.5 hover:shadow-md"
+      active ? "border-slate-900 bg-[linear-gradient(135deg,#fff7ee,#f4f8ff)] shadow-[0_14px_30px_rgba(24,34,48,0.12),0_0_30px_rgba(240,181,82,0.16)]" : "border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(255,255,255,0.7))] hover:-translate-y-0.5 hover:shadow-md"
     )
   },
     h(Icon, { size: 20, className: active ? "text-auty-gold" : "text-slate-400" }),
