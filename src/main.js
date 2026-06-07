@@ -43,7 +43,7 @@ const VAT_RATE = 20;
 const MAIN_TABS = ["Dashboard", "Calendar", "Client Database", "Current Job"];
 const JOB_TABS = ["Room Quoter", "Job Overview", "Invoice Generator", "Photos & Attachments"];
 const QUOTE_STATUSES = ["Draft", "Sent", "Awaiting Approval", "Accepted", "In Progress", "Complete", "Invoice Due", "Paid"];
-const CALENDAR_TYPES = ["Confirmed Job", "Proposed Job", "Personal / Blocked Time", "Quote Visit", "Invoice / Payment Due"];
+const CALENDAR_TYPES = ["Personal Time", "Other Work", "Booked Job", "Quote Visit", "Invoice Due", "Other"];
 const PHOTO_TYPES = ["Before", "During", "After", "Damage", "Materials", "Other"];
 const ROOM_PRESETS = [
   { key: "Living Room", label: "Living", icon: Sofa },
@@ -278,19 +278,21 @@ function calculateQuote(quote, rooms, settings) {
 }
 
 function calendarColour(type) {
-  if (type === "Confirmed Job") return "bg-emerald-500";
-  if (type === "Proposed Job") return "bg-amber-500";
-  if (type === "Personal / Blocked Time") return "bg-slate-500";
-  if (type === "Quote Visit") return "bg-sky-500";
-  return "bg-rose-500";
+  if (type === "Personal Time") return "bg-violet-400";
+  if (type === "Other Work") return "bg-cyan-400";
+  if (type === "Booked Job") return "bg-emerald-400";
+  if (type === "Quote Visit") return "bg-amber-400";
+  if (type === "Invoice Due") return "bg-rose-400";
+  return "bg-fuchsia-400";
 }
 
 function calendarTint(type) {
-  if (type === "Confirmed Job") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
-  if (type === "Proposed Job") return "bg-amber-50 text-amber-700 ring-amber-200";
-  if (type === "Personal / Blocked Time") return "bg-slate-100 text-slate-700 ring-slate-200";
-  if (type === "Quote Visit") return "bg-sky-50 text-sky-700 ring-sky-200";
-  return "bg-rose-50 text-rose-700 ring-rose-200";
+  if (type === "Personal Time") return "bg-violet-50 text-violet-700 ring-violet-200";
+  if (type === "Other Work") return "bg-cyan-50 text-cyan-700 ring-cyan-200";
+  if (type === "Booked Job") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  if (type === "Quote Visit") return "bg-amber-50 text-amber-700 ring-amber-200";
+  if (type === "Invoice Due") return "bg-rose-50 text-rose-700 ring-rose-200";
+  return "bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-200";
 }
 
 function createRoomDraft(quoteId = "") {
@@ -339,6 +341,16 @@ function createRoomDraft(quoteId = "") {
   };
 }
 
+function updateLinkedCollections(clientId, quoteIds, roomIds, removeItem) {
+  quoteIds.forEach((quoteId) => removeItem("quotes", "quoteId", quoteId));
+  roomIds.forEach((roomId) => removeItem("rooms", "roomId", roomId));
+  quoteIds.forEach((quoteId) => removeItem("invoices", "quoteId", quoteId));
+  quoteIds.forEach((quoteId) => removeItem("calendarEntries", "quoteId", quoteId));
+  roomIds.forEach((roomId) => removeItem("photos", "roomId", roomId));
+  removeItem("photos", "clientId", clientId);
+  removeItem("calendarEntries", "clientId", clientId);
+}
+
 function App() {
   const [data, setData] = useState(legacyAwareLoad);
   const [activeTab, setActiveTab] = useState("Dashboard");
@@ -347,10 +359,20 @@ function App() {
   const [selectedQuoteId, setSelectedQuoteId] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [notice, setNotice] = useState("");
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }, [data]);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPromptEvent(event);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+  }, []);
 
   useEffect(() => {
     if (!notice) return;
@@ -602,9 +624,18 @@ function App() {
     setNotice
   };
 
-  return h("div", { className: "min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(255,220,140,0.25),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(111,168,220,0.16),_transparent_28%),linear-gradient(180deg,_#f8f0e6_0%,_#fffaf4_100%)] pb-28 text-auty-ink" },
+  const installToHomeScreen = async () => {
+    if (installPromptEvent) {
+      await installPromptEvent.prompt();
+      setInstallPromptEvent(null);
+      return;
+    }
+    setNotice("Use your browser menu and choose Add to Home Screen");
+  };
+
+  return h("div", { className: "min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(255,207,138,0.34),_transparent_26%),radial-gradient(circle_at_20%_75%,_rgba(105,201,255,0.18),_transparent_24%),radial-gradient(circle_at_top_right,_rgba(232,141,255,0.18),_transparent_25%),linear-gradient(180deg,_#fbf5ec_0%,_#f7fbff_55%,_#fff6ef_100%)] pb-28 text-auty-ink" },
     h("div", { className: "mx-auto flex min-h-screen max-w-7xl flex-col px-4 pb-8 pt-4 sm:px-6" },
-      h("header", { className: "sticky top-0 z-30 mb-5 rounded-[28px] border border-white/60 bg-white/75 px-4 py-4 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur-xl" },
+      h("header", { className: "sticky top-0 z-30 mb-5 rounded-[28px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.46))] px-4 py-4 shadow-[0_20px_50px_rgba(24,34,48,0.1),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl" },
         h("div", { className: "flex items-center justify-between gap-4" },
           h("div", null,
             h("p", { className: "text-[11px] font-bold uppercase tracking-[0.28em] text-auty-gold" }, "Auty Decorating Workspace App"),
@@ -624,7 +655,7 @@ function App() {
       )
     ),
     h(FloatingNav, { activeTab, setActiveTab }),
-    showSettings && h(SettingsPanel, { data, update, setShowSettings, setNotice }),
+    showSettings && h(SettingsPanel, { data, update, setShowSettings, setNotice, installToHomeScreen }),
     notice && h("div", { className: "fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-xl animate-[slideIn_.3s_ease]" }, notice)
   );
 }
@@ -670,7 +701,7 @@ function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTa
 
   return h("div", { className: "space-y-5" },
     h("section", { className: "grid gap-4 lg:grid-cols-[1.3fr_0.7fr]" },
-      h("div", { className: "overflow-hidden rounded-[32px] border border-white/70 bg-[linear-gradient(135deg,rgba(24,34,48,0.98),rgba(55,89,123,0.92))] p-5 text-white shadow-[0_26px_70px_rgba(24,34,48,0.25)]" },
+      h("div", { className: "overflow-hidden rounded-[32px] border border-white/55 bg-[linear-gradient(135deg,rgba(34,48,71,0.82),rgba(111,168,220,0.48),rgba(233,184,92,0.38))] p-5 text-white shadow-[0_28px_70px_rgba(24,34,48,0.22),inset_0_1px_0_rgba(255,255,255,0.26)] backdrop-blur-2xl" },
         h("p", { className: "text-[11px] font-bold uppercase tracking-[0.3em] text-amber-300" }, "Today"),
         h("h2", { className: "mt-2 max-w-xl text-3xl font-black leading-tight" }, "Keep jobs moving, quotes clear, and payment follow-up tidy."),
         h("p", { className: "mt-3 max-w-2xl text-sm text-white/72" }, "This version is arranged for quick use on a busy day. The main job flow lives under Current Job, while your client list and diary stay one tap away."),
@@ -682,7 +713,7 @@ function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTa
         )
       ),
       h("div", { className: "grid gap-3 sm:grid-cols-2 lg:grid-cols-1" },
-        statCards.map(([label, value, tone]) => h("div", { key: label, className: "rounded-[24px] border border-white/60 bg-white/85 p-4 shadow-[0_16px_40px_rgba(24,34,48,0.08)] transition duration-300 hover:-translate-y-0.5" },
+        statCards.map(([label, value, tone]) => h("div", { key: label, className: "rounded-[24px] border border-white/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.56))] p-4 shadow-[0_18px_45px_rgba(24,34,48,0.08),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-xl transition duration-300 hover:-translate-y-0.5" },
           h("div", { className: classNames("h-2 rounded-full bg-gradient-to-r", tone) }),
           h("div", { className: "mt-3 flex items-end justify-between gap-3" },
             h("div", null, h("p", { className: "text-sm font-semibold text-slate-500" }, label), h("p", { className: "mt-1 text-3xl font-black text-slate-900" }, value)),
@@ -692,7 +723,7 @@ function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTa
       )
     ),
     h("section", { className: "grid gap-4 lg:grid-cols-2" },
-      h("div", { className: "rounded-[28px] border border-white/70 bg-white/80 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
+      h("div", { className: "rounded-[28px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.58))] p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-2xl" },
         h("div", { className: "flex items-center justify-between" },
           h("h3", { className: "text-lg font-black text-slate-900" }, "Recent Quotes"),
           h("button", { onClick: () => { setActiveTab("Current Job"); setJobTab("Job Overview"); }, className: "text-sm font-bold text-auty-gold transition hover:text-orange-500" }, "Open job view")
@@ -706,7 +737,7 @@ function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTa
           ))
         ) : h(EmptyState, { title: "No quotations yet", body: "Start a quote from the Current Job tab and it will appear here." })
       ),
-      h("div", { className: "rounded-[28px] border border-white/70 bg-white/80 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
+      h("div", { className: "rounded-[28px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.58))] p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-2xl" },
         h("div", { className: "flex items-center justify-between" },
           h("h3", { className: "text-lg font-black text-slate-900" }, "Latest Clients"),
           h("button", { onClick: () => setActiveTab("Client Database"), className: "text-sm font-bold text-auty-gold transition hover:text-orange-500" }, "Open database")
@@ -735,12 +766,12 @@ function QuickAction({ label, onClick, icon: Icon, tone }) {
 
 function CalendarPage({ data, upsert, setNotice }) {
   const [monthView, setMonthView] = useState(new Date());
-  const [entry, setEntry] = useState({ title: "", type: "Personal / Blocked Time", startDate: today(), endDate: today(), clientId: "", quoteId: "", notes: "" });
+  const [entry, setEntry] = useState({ title: "", type: "Personal Time", startDate: today(), endDate: today(), clientId: "", quoteId: "", notes: "" });
   const monthGrid = buildMonthGrid(monthView, data.calendarEntries);
   const visibleEntries = data.calendarEntries
     .filter((item) => item.startDate.slice(0, 7) <= monthStamp(monthView) && item.endDate.slice(0, 7) >= monthStamp(monthView))
     .sort((a, b) => a.startDate.localeCompare(b.startDate));
-  const overlaps = data.calendarEntries.some((item) => item.type === "Personal / Blocked Time" && entry.type !== "Personal / Blocked Time" && entry.startDate <= item.endDate && entry.endDate >= item.startDate);
+  const overlaps = data.calendarEntries.some((item) => item.type === "Personal Time" && entry.type !== "Personal Time" && entry.startDate <= item.endDate && entry.endDate >= item.startDate);
 
   const saveEntry = () => {
     if (!entry.title || !entry.startDate) {
@@ -748,12 +779,12 @@ function CalendarPage({ data, upsert, setNotice }) {
       return;
     }
     upsert("calendarEntries", { ...entry, calendarEntryId: uid("cal") }, "calendarEntryId");
-    setEntry({ ...entry, title: "", notes: "" });
+    setEntry({ ...entry, title: "", notes: "", type: "Personal Time" });
     setNotice(overlaps ? "Calendar booking saved with overlap warning" : "Calendar booking saved");
   };
 
   return h("div", { className: "grid gap-5 lg:grid-cols-[1.3fr_0.7fr]" },
-    h("section", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
+    h("section", { className: "rounded-[30px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.48))] p-5 shadow-[0_22px_55px_rgba(24,34,48,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl" },
       h("div", { className: "flex flex-wrap items-center justify-between gap-3" },
         h("div", null,
           h("p", { className: "text-[11px] font-bold uppercase tracking-[0.24em] text-auty-gold" }, "Business Calendar"),
@@ -771,22 +802,26 @@ function CalendarPage({ data, upsert, setNotice }) {
         monthGrid.map((day) => h("div", {
           key: `${day.date}-${day.inMonth}`,
           className: classNames(
-            "min-h-[110px] rounded-[24px] border p-3 transition duration-300 hover:-translate-y-0.5",
-            day.inMonth ? "border-white/70 bg-[linear-gradient(180deg,#ffffff,#f7f3ec)] shadow-[0_10px_24px_rgba(24,34,48,0.05)]" : "border-white/40 bg-white/40 text-slate-400"
+            "min-h-[110px] rounded-[30px] border p-3 transition duration-300 hover:-translate-y-0.5",
+            day.inMonth ? "border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.8),rgba(255,250,244,0.56))] shadow-[0_16px_30px_rgba(24,34,48,0.06),inset_0_1px_0_rgba(255,255,255,0.8)]" : "border-white/40 bg-white/35 text-slate-400"
           )
         },
           h("div", { className: "flex items-center justify-between" },
             h("span", { className: classNames("grid h-8 w-8 place-items-center rounded-2xl text-sm font-black", day.date === today() ? "bg-slate-900 text-white" : "text-slate-700") }, new Date(`${day.date}T12:00:00`).getDate())
           ),
-          h("div", { className: "mt-3 space-y-2" },
-            day.entries.slice(0, 3).map((entryItem) => h("div", { key: entryItem.calendarEntryId, className: classNames("rounded-2xl px-2 py-1 text-[11px] font-bold text-white", calendarColour(entryItem.type)) }, entryItem.title)),
-            day.entries.length > 3 && h("p", { className: "text-[11px] font-bold text-slate-400" }, `+${day.entries.length - 3} more`)
+          h("div", { className: "mt-6 flex flex-wrap gap-2" },
+            day.entries.slice(0, 5).map((entryItem) => h("span", {
+              key: entryItem.calendarEntryId,
+              title: `${entryItem.type}: ${entryItem.title}`,
+              className: classNames("h-3.5 w-3.5 rounded-full shadow-[0_0_16px_rgba(255,255,255,0.55)] ring-2 ring-white/70", calendarColour(entryItem.type))
+            })),
+            day.entries.length > 5 && h("p", { className: "text-[11px] font-bold text-slate-400" }, `+${day.entries.length - 5}`)
           )
         ))
       )
     ),
     h("aside", { className: "space-y-4" },
-      h("div", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
+      h("div", { className: "rounded-[30px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.5))] p-5 shadow-[0_22px_55px_rgba(24,34,48,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl" },
         h("h3", { className: "text-lg font-black text-slate-900" }, "Add Booking"),
         h("div", { className: "mt-4 space-y-3" },
           h(Field, { label: "Title", value: entry.title, onChange: (value) => setEntry({ ...entry, title: value }) }),
@@ -830,7 +865,7 @@ function CalendarPage({ data, upsert, setNotice }) {
           visibleEntries.map((entryItem) => h("div", { key: entryItem.calendarEntryId, className: "rounded-[22px] bg-[linear-gradient(135deg,#fefefe,#f8f3ec)] p-4 shadow-sm" },
             h("div", { className: "flex items-start justify-between gap-3" },
               h("div", null,
-                h("span", { className: classNames("inline-flex rounded-full px-3 py-1 text-[11px] font-bold ring-1", calendarTint(entryItem.type)) }, entryItem.type),
+                      h("span", { className: classNames("inline-flex rounded-full px-3 py-1 text-[11px] font-bold ring-1", calendarTint(entryItem.type)) }, entryItem.type),
                 h("p", { className: "mt-2 font-black text-slate-900" }, entryItem.title),
                 h("p", { className: "text-sm text-slate-500" }, `${shortDate(entryItem.startDate)} to ${shortDate(entryItem.endDate)}`)
               ),
@@ -864,7 +899,7 @@ function buildMonthGrid(monthView, entries) {
   return days;
 }
 
-function ClientDatabasePage({ data, upsert, createClient, createQuote, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab }) {
+function ClientDatabasePage({ data, upsert, removeItem, createClient, createQuote, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab, setNotice }) {
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState("");
   const [editId, setEditId] = useState("");
@@ -905,6 +940,18 @@ function ClientDatabasePage({ data, upsert, createClient, createQuote, setSelect
     upsert("clients", { ...draft, name: displayName(draft) }, "clientId");
     setEditId("");
     setOpenId("");
+  };
+
+  const deleteClient = (client) => {
+    const ok = window.confirm(`Delete ${displayName(client)} and all related quotes, rooms, invoices, photos, and calendar items? This cannot be undone.`);
+    if (!ok) return;
+    const quoteIds = data.quotes.filter((quote) => quote.clientId === client.clientId).map((quote) => quote.quoteId);
+    const roomIds = data.rooms.filter((room) => quoteIds.includes(room.quoteId)).map((room) => room.roomId);
+    removeItem("clients", "clientId", client.clientId);
+    updateLinkedCollections(client.clientId, quoteIds, roomIds, removeItem);
+    setOpenId("");
+    setEditId("");
+    setNotice("Client deleted");
   };
 
   return h("div", { className: "space-y-5" },
@@ -1023,6 +1070,12 @@ function ClientDatabasePage({ data, upsert, createClient, createQuote, setSelect
                       },
                       icon: Home,
                       variant: "soft"
+                    }),
+                    h(ActionButton, {
+                      label: "Delete Client",
+                      onClick: () => deleteClient(client),
+                      icon: Trash2,
+                      variant: "danger"
                     })
                   )
                 ),
@@ -1375,7 +1428,7 @@ function JobOverviewPage({ data, selectedClient, selectedQuote, upsert, removeIt
   );
 }
 
-function InvoiceGeneratorPage({ data, upsert, selectedQuote, generatePdf, setNotice }) {
+function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generatePdf, setNotice }) {
   const [quoteId, setQuoteId] = useState(selectedQuote?.quoteId || data.quotes[0]?.quoteId || "");
   useEffect(() => {
     if (selectedQuote?.quoteId) setQuoteId(selectedQuote.quoteId);
@@ -1384,6 +1437,7 @@ function InvoiceGeneratorPage({ data, upsert, selectedQuote, generatePdf, setNot
   const calc = quote ? calculateQuote(quote, data.rooms, data.settings) : null;
   const client = data.clients.find((entry) => entry.clientId === quote?.clientId);
   const existingInvoice = data.invoices.find((invoice) => invoice.quoteId === quote?.quoteId);
+  const relatedInvoices = data.invoices.filter((invoice) => invoice.clientId === quote?.clientId).sort((a, b) => b.invoiceDate.localeCompare(a.invoiceDate));
   const [draftInvoice, setDraftInvoice] = useState(null);
 
   useEffect(() => {
@@ -1413,6 +1467,25 @@ function InvoiceGeneratorPage({ data, upsert, selectedQuote, generatePdf, setNot
     setNotice("Invoice generated");
   };
 
+  const deleteInvoice = (invoice) => {
+    const ok = window.confirm(`Delete invoice ${invoice.invoiceReference}? This cannot be undone.`);
+    if (!ok) return;
+    removeItem("invoices", "invoiceId", invoice.invoiceId);
+    setDraftInvoice({
+      invoiceId: uid("invoice"),
+      clientId: quote.clientId,
+      quoteId: quote.quoteId,
+      invoiceReference: nextReference("AUTY-INV", data.invoices.filter((entry) => entry.invoiceId !== invoice.invoiceId), "invoiceReference"),
+      invoiceDate: today(),
+      jobTotal: calc.total,
+      depositPaid: calc.depositAmount,
+      balanceDue: Math.max(0, calc.total - calc.depositAmount),
+      paymentDueDate: addDays(today(), 14),
+      invoiceStatus: "Invoice Due"
+    });
+    setNotice("Invoice deleted");
+  };
+
   return h("div", { className: "grid gap-5 xl:grid-cols-[1.05fr_0.95fr]" },
     h("section", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
       h("p", { className: "text-[11px] font-bold uppercase tracking-[0.24em] text-auty-gold" }, "Invoice Generator"),
@@ -1440,6 +1513,22 @@ function InvoiceGeneratorPage({ data, upsert, selectedQuote, generatePdf, setNot
         ),
         h("p", { className: "mt-4 text-sm text-white/72" }, `Payment due by ${shortDate(draftInvoice.paymentDueDate)}`),
         h(ActionButton, { label: "Generate Final Invoice", onClick: saveAndGenerate, icon: FileText, className: "mt-5 w-full" })
+      ),
+      h("div", { className: "rounded-[30px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.48))] p-5 shadow-[0_22px_55px_rgba(24,34,48,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl" },
+        h("h3", { className: "text-lg font-black text-slate-900" }, "Past Invoices"),
+        relatedInvoices.length
+          ? h("div", { className: "mt-4 space-y-3" },
+            relatedInvoices.map((invoice) => h("div", { key: invoice.invoiceId, className: "rounded-[22px] bg-[linear-gradient(135deg,#ffffff,#f8fbff)] p-4 shadow-sm" },
+              h("div", { className: "flex items-start justify-between gap-3" },
+                h("div", null,
+                  h("p", { className: "font-black text-slate-900" }, invoice.invoiceReference),
+                  h("p", { className: "text-sm text-slate-500" }, `${shortDate(invoice.invoiceDate)} | ${invoice.invoiceStatus}`)
+                ),
+                h(IconButton, { icon: Trash2, onClick: () => deleteInvoice(invoice) })
+              )
+            ))
+          )
+          : h(EmptyState, { title: "No saved invoices yet", body: "Generate one and it will appear here." })
       )
     )
   );
@@ -1517,7 +1606,7 @@ function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice }) 
   );
 }
 
-function SettingsPanel({ data, update, setShowSettings, setNotice }) {
+function SettingsPanel({ data, update, setShowSettings, setNotice, installToHomeScreen }) {
   const settings = data.settings;
   const patch = (field, value) => update("settings", { ...settings, [field]: value });
   const exportBackup = () => downloadText(`auty-decorating-backup-${today()}.json`, JSON.stringify(data, null, 2), "application/json");
@@ -1535,8 +1624,8 @@ function SettingsPanel({ data, update, setShowSettings, setNotice }) {
     if (file) reader.readAsText(file);
   };
 
-  return h("div", { className: "fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm" },
-    h("div", { className: "mx-auto mt-6 w-[min(94vw,860px)] rounded-[34px] border border-white/70 bg-white/95 p-5 shadow-[0_28px_80px_rgba(24,34,48,0.22)]" },
+  return h("div", { className: "fixed inset-0 z-50 bg-[radial-gradient(circle_at_top_left,rgba(255,210,145,0.18),transparent_26%),rgba(15,23,42,0.36)] backdrop-blur-md" },
+    h("div", { className: "mx-auto mt-6 w-[min(94vw,860px)] rounded-[34px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.56))] p-5 shadow-[0_30px_80px_rgba(24,34,48,0.22),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-2xl" },
       h("div", { className: "flex items-center justify-between gap-3" },
         h("div", null,
           h("p", { className: "text-[11px] font-bold uppercase tracking-[0.24em] text-auty-gold" }, "Settings"),
@@ -1556,6 +1645,7 @@ function SettingsPanel({ data, update, setShowSettings, setNotice }) {
         h("div", { className: "lg:col-span-2" }, h(Field, { label: "Payment Details", value: settings.paymentDetails, textarea: true, onChange: (value) => patch("paymentDetails", value) }))
       ),
       h("div", { className: "mt-5 flex flex-wrap gap-3" },
+        h(ActionButton, { label: "Add App To Home Screen", onClick: installToHomeScreen, icon: Home, variant: "soft" }),
         h(ActionButton, { label: "Export JSON Backup", onClick: exportBackup, icon: Download }),
         h("label", { className: "inline-flex min-h-[52px] cursor-pointer items-center gap-2 rounded-[20px] bg-slate-900 px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-slate-800" },
           h(Upload, { size: 18 }),
