@@ -1,6 +1,6 @@
 import { ADJUSTMENT_OPTIONS, DAY_RATE, LEGACY_KEYS, OTHER_FEATURE_KEYS, STORAGE_KEY, TIME_OPTIONS, initialState } from "./constants.js";
 
-installCalendarPolish();
+installAutyV25Polish();
 
 export const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 export const money = (value) => `£${number(value).toFixed(2)}`;
@@ -12,37 +12,94 @@ export const monthNames = ["January", "February", "March", "April", "May", "June
 export const shortDate = (value) => value ? new Date(`${value}T12:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Not set";
 export const monthStamp = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
-function installCalendarPolish() {
+function installAutyV25Polish() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
-  if (window.__AUTY_CALENDAR_POLISH_INSTALLED__) return;
-  window.__AUTY_CALENDAR_POLISH_INSTALLED__ = true;
+  if (window.__AUTY_V25_POLISH_INSTALLED__) return;
+  window.__AUTY_V25_POLISH_INSTALLED__ = true;
+  window.__AUTY_VERSION__ = "2.5";
 
   const style = document.createElement("style");
-  style.id = "auty-calendar-polish";
+  style.id = "auty-v25-polish";
   style.textContent = `
+    :root {
+      --auty-bg-1: #d8e6e8;
+      --auty-bg-2: #c3d3d9;
+      --auty-bg-3: #adbec7;
+      --auty-glass-1: rgba(255,255,255,.34);
+      --auty-glass-2: rgba(255,255,255,.52);
+      --auty-glass-3: rgba(255,255,255,.78);
+      --auty-line: rgba(255,255,255,.58);
+      --auty-teal: #00b8c6;
+      --auty-teal-2: #12c7b8;
+    }
+
+    html,
     body {
-      background: linear-gradient(180deg, #d9e6e8 0%, #c9d8de 48%, #acbdc6 100%) !important;
+      background: linear-gradient(180deg, var(--auty-bg-1), var(--auty-bg-2) 48%, var(--auty-bg-3)) !important;
     }
 
     #root > div.min-h-screen {
-      background: radial-gradient(circle at top left, rgba(0,184,198,.18), transparent 24%), radial-gradient(circle at 82% 12%, rgba(212,175,55,.13), transparent 22%), linear-gradient(180deg, #dce8eb 0%, #c9d8de 54%, #b3c4cc 100%) !important;
+      padding-bottom: 8.25rem !important;
+      background: radial-gradient(circle at 12% 4%, rgba(255,255,255,.38), transparent 28%), radial-gradient(circle at 88% 10%, rgba(0,184,198,.14), transparent 24%), linear-gradient(180deg, var(--auty-bg-1), var(--auty-bg-2) 55%, var(--auty-bg-3)) !important;
     }
 
-    header,
+    #root > div.min-h-screen > div {
+      background: rgba(255,255,255,.08) !important;
+      border-left: 1px solid rgba(255,255,255,.24);
+      border-right: 1px solid rgba(255,255,255,.18);
+    }
+
+    header {
+      background: linear-gradient(135deg, rgba(255,255,255,.78), rgba(255,255,255,.46)) !important;
+      border: 1px solid rgba(255,255,255,.76) !important;
+      box-shadow: 0 24px 60px rgba(15,23,42,.14), inset 0 1px 0 rgba(255,255,255,.88) !important;
+      backdrop-filter: blur(28px) saturate(1.16) !important;
+    }
+
     section,
     article,
     aside > div {
-      box-shadow: 0 22px 58px rgba(15, 23, 42, .12), inset 0 1px 0 rgba(255,255,255,.78) !important;
+      background: linear-gradient(135deg, rgba(255,255,255,.40), rgba(255,255,255,.20)) !important;
+      border: 1px solid rgba(255,255,255,.50) !important;
+      box-shadow: 0 22px 58px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.56) !important;
+      backdrop-filter: blur(22px) saturate(1.1) !important;
+    }
+
+    section section,
+    section article,
+    article article,
+    aside section,
+    aside article,
+    .auty-option-card,
+    label,
+    input,
+    select,
+    textarea {
+      backdrop-filter: blur(18px) saturate(1.08) !important;
+    }
+
+    .auty-v25-badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: .22rem .55rem;
+      background: rgba(0,184,198,.11);
+      color: #0f766e;
+      border: 1px solid rgba(0,184,198,.22);
+      font-size: .66rem;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
     }
 
     button[class*="#d4af37"][class*="#00b8c6"],
+    button[class*="from-[#d4af37]"],
     .auty-teal-action {
-      background: linear-gradient(135deg, #00b8c6 0%, #10c8ba 100%) !important;
+      background: linear-gradient(135deg, var(--auty-teal), var(--auty-teal-2)) !important;
       color: #061019 !important;
-      box-shadow: 0 16px 36px rgba(0, 184, 198, .28), inset 0 1px 0 rgba(255,255,255,.35) !important;
+      box-shadow: 0 16px 36px rgba(0,184,198,.24), inset 0 1px 0 rgba(255,255,255,.36) !important;
     }
 
-    button[class*="#d4af37"][class*="#00b8c6"]:hover,
     .auty-teal-action:hover {
       filter: saturate(1.08) brightness(1.02) !important;
     }
@@ -53,7 +110,9 @@ function installCalendarPolish() {
       min-height: 6.8rem !important;
       text-align: center !important;
       gap: .55rem !important;
-      box-shadow: 0 16px 34px rgba(15,23,42,.08), 0 0 0 1px rgba(255,255,255,.64), 0 0 26px rgba(0,184,198,.08) !important;
+      background: linear-gradient(145deg, rgba(255,255,255,.70), rgba(255,255,255,.34)) !important;
+      border: 1px solid rgba(255,255,255,.70) !important;
+      box-shadow: 0 16px 34px rgba(15,23,42,.08), 0 0 0 1px rgba(255,255,255,.42), 0 0 26px rgba(0,184,198,.08) !important;
     }
 
     .auty-select-card:hover,
@@ -62,43 +121,53 @@ function installCalendarPolish() {
       box-shadow: 0 20px 42px rgba(15,23,42,.12), 0 0 30px rgba(0,184,198,.22), inset 0 1px 0 rgba(255,255,255,.72) !important;
     }
 
-    .auty-select-card svg {
-      margin: 0 auto !important;
+    .auty-select-card svg,
+    .auty-select-card p {
+      margin-left: auto !important;
+      margin-right: auto !important;
+      text-align: center !important;
+    }
+
+    .auty-choice-group {
+      display: grid !important;
+      grid-template-columns: repeat(var(--auty-choice-count, 3), minmax(0, 1fr)) !important;
+      gap: .22rem !important;
+      width: 100% !important;
+      max-width: 19rem !important;
+      padding: .28rem !important;
+      border-radius: 999px !important;
+      background: rgba(255,255,255,.44) !important;
+      border: 1px solid rgba(255,255,255,.62) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.72), 0 12px 26px rgba(15,23,42,.07) !important;
+      backdrop-filter: blur(18px) saturate(1.12) !important;
     }
 
     .auty-choice {
-      min-width: 4.35rem !important;
-      border: 1px solid rgba(255,255,255,.7) !important;
-      backdrop-filter: blur(16px) !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 9px 22px rgba(15,23,42,.08) !important;
-    }
-
-    .auty-choice-yes {
-      background: linear-gradient(135deg, rgba(16,185,129,.20), rgba(255,255,255,.55)) !important;
-      color: #047857 !important;
-    }
-
-    .auty-choice-partial {
-      background: linear-gradient(135deg, rgba(245,158,11,.24), rgba(255,255,255,.55)) !important;
-      color: #92400e !important;
-    }
-
-    .auty-choice-no {
-      background: linear-gradient(135deg, rgba(226,232,240,.74), rgba(255,255,255,.48)) !important;
-      color: #334155 !important;
+      min-width: 0 !important;
+      width: 100% !important;
+      justify-content: center !important;
+      border-radius: 999px !important;
+      border: 0 !important;
+      background: transparent !important;
+      color: #475569 !important;
+      box-shadow: none !important;
+      padding: .62rem .42rem !important;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease, color .18s ease !important;
     }
 
     .auty-choice[class*="bg-slate-900"] {
-      color: #061019 !important;
       transform: translateY(-1px) !important;
+      box-shadow: 0 10px 22px rgba(15,23,42,.14), inset 0 1px 0 rgba(255,255,255,.36) !important;
     }
 
     .auty-choice-yes[class*="bg-slate-900"] {
       background: linear-gradient(135deg, #22c55e, #10b981) !important;
+      color: #062c1f !important;
     }
 
     .auty-choice-partial[class*="bg-slate-900"] {
       background: linear-gradient(135deg, #f59e0b, #fbbf24) !important;
+      color: #3b2600 !important;
     }
 
     .auty-choice-no[class*="bg-slate-900"] {
@@ -106,22 +175,53 @@ function installCalendarPolish() {
       color: #ffffff !important;
     }
 
+    .auty-compact-options-panel .auty-option-grid {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: .82rem !important;
+    }
+
+    .auty-option-card {
+      min-height: auto !important;
+      padding: .92rem !important;
+      border-radius: 1.55rem !important;
+      background: linear-gradient(135deg, rgba(255,255,255,.72), rgba(255,255,255,.36)) !important;
+      border: 1px solid rgba(255,255,255,.64) !important;
+      box-shadow: 0 14px 30px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.72) !important;
+    }
+
+    .auty-option-card > label,
+    .auty-option-card p,
+    .auty-option-card span {
+      word-break: normal !important;
+    }
+
     .auty-dashboard-copy {
-      font-size: .95rem !important;
+      font-size: 0 !important;
       line-height: 1.55 !important;
     }
 
     .auty-dashboard-copy::before {
       content: "Today: open Current Job for the live overview. Next job: check Calendar for upcoming work and directions.";
       display: block;
-    }
-
-    .auty-dashboard-copy {
-      font-size: 0 !important;
-    }
-
-    .auty-dashboard-copy::before {
       font-size: .95rem !important;
+    }
+
+    .auty-dashboard-operational {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .65rem;
+    }
+
+    .auty-dashboard-operational button {
+      min-height: 3.15rem;
+      border: 1px solid rgba(255,255,255,.56);
+      border-radius: 1.15rem;
+      background: rgba(255,255,255,.30);
+      color: #0f172a;
+      font-weight: 900;
+      backdrop-filter: blur(16px);
     }
 
     .auty-calendar-page {
@@ -176,12 +276,7 @@ function installCalendarPolish() {
       border-radius: 999px !important;
       overflow: hidden !important;
       transform: none !important;
-      box-shadow: 0 .55rem 1.3rem rgba(15, 23, 42, .13) !important;
-    }
-
-    .auty-calendar-page [data-auty-calendar-events="true"] > button[title]:hover {
-      transform: translateY(-1px) !important;
-      z-index: 25 !important;
+      box-shadow: 0 .55rem 1.3rem rgba(15,23,42,.13) !important;
     }
 
     .auty-calendar-page [data-auty-calendar-events="true"] > button[title]::after {
@@ -191,11 +286,10 @@ function installCalendarPolish() {
       display: flex;
       align-items: center;
       padding: 0 .55rem;
-      color: rgba(15, 23, 42, .88);
+      color: rgba(15,23,42,.88);
       font-size: .58rem;
       font-weight: 900;
       line-height: 1;
-      letter-spacing: -.01em;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -206,16 +300,20 @@ function installCalendarPolish() {
       top: 1.45rem !important;
     }
 
-    .auty-calendar-page [data-auty-calendar-events="true"] > p {
-      align-self: center;
-      margin-top: .1rem;
+    nav button[data-auty-nav="Dashboard"] {
+      order: 3;
     }
 
-    @media (min-width: 740px) {
-      .auty-other-features-panel > div:last-child,
-      .auty-other-features-panel .grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-      }
+    nav button[data-auty-nav="Client Database"] {
+      order: 2;
+    }
+
+    nav button[data-auty-nav="Current Job"] {
+      order: 4;
+    }
+
+    nav button[data-auty-nav="Calendar"] {
+      order: 1;
     }
 
     @media (min-width: 1024px) {
@@ -225,8 +323,29 @@ function installCalendarPolish() {
     }
 
     @media (max-width: 720px) {
-      header {
-        margin-top: .15rem !important;
+      #root > div.min-h-screen {
+        padding-bottom: 8.75rem !important;
+      }
+
+      .auty-compact-options-panel .auty-option-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: .65rem !important;
+      }
+
+      .auty-option-card {
+        padding: .72rem !important;
+        border-radius: 1.25rem !important;
+      }
+
+      .auty-choice-group {
+        max-width: 100% !important;
+        gap: .12rem !important;
+        padding: .22rem !important;
+      }
+
+      .auty-choice {
+        padding: .52rem .2rem !important;
+        font-size: .78rem !important;
       }
 
       .auty-calendar-page > section {
@@ -267,55 +386,121 @@ function installCalendarPolish() {
   document.head.appendChild(style);
 
   let scheduled = false;
-  const markCalendar = () => {
+  const textOf = (node) => node?.textContent?.replace(/\s+/g, " ").trim() || "";
+
+  const findPanelByHeading = (label) => {
+    const heading = Array.from(document.querySelectorAll("h2, h3"))
+      .find((node) => textOf(node) === label);
+    return heading?.closest("section") || heading?.parentElement || null;
+  };
+
+  const markPanelOptions = (panel) => {
+    if (!panel) return [];
+    panel.classList.add("auty-compact-options-panel");
+    const cards = Array.from(panel.querySelectorAll("div"))
+      .filter((node) => {
+        const buttons = Array.from(node.querySelectorAll("button"));
+        const labels = buttons.map(textOf);
+        return labels.includes("Yes") && labels.includes("No") && node !== panel;
+      });
+    cards.forEach((card) => card.classList.add("auty-option-card"));
+    const parent = cards[0]?.parentElement;
+    if (parent) parent.classList.add("auty-option-grid");
+    return cards;
+  };
+
+  const markV25 = () => {
     scheduled = false;
 
     Array.from(document.querySelectorAll("button")).forEach((button) => {
-      const text = button.textContent?.trim();
+      const text = textOf(button);
       if (["Yes", "No", "Partial"].includes(text)) {
         button.classList.add("auty-choice", `auty-choice-${text.toLowerCase()}`);
+        const parent = button.parentElement;
+        if (parent) {
+          parent.classList.add("auty-choice-group");
+          const choiceCount = Array.from(parent.querySelectorAll("button"))
+            .filter((item) => ["Yes", "No", "Partial"].includes(textOf(item))).length || 2;
+          parent.style.setProperty("--auty-choice-count", String(choiceCount));
+        }
       }
 
       const hasCardShape = button.className?.toString().includes("rounded-[24px]") && button.querySelector("svg") && button.querySelector("p");
       if (hasCardShape) button.classList.add("auty-select-card");
 
-      const isPrimaryAction = button.className?.toString().includes("#d4af37") && button.className?.toString().includes("#00b8c6");
-      if (isPrimaryAction) button.classList.add("auty-teal-action");
+      const primaryTexts = ["New Quote", "New Quote (New Client)", "New Quote (Assign Existing)", "Save Calendar Entry", "Generate Final Invoice", "Save Client", "Generate Quote PDF"];
+      const isPrimaryAction = button.className?.toString().includes("#d4af37")
+        || button.className?.toString().includes("#00b8c6")
+        || primaryTexts.some((label) => text.includes(label));
+      if (isPrimaryAction && !text.includes("Clear Form") && !text.includes("Delete")) button.classList.add("auty-teal-action");
+
+      if (["Calendar", "Dashboard", "Client Database", "Current Job"].includes(text)) {
+        button.setAttribute("data-auty-nav", text);
+      }
     });
+
+    Array.from(document.querySelectorAll("span, p"))
+      .filter((node) => textOf(node) === "Loading workspace" && !document.body.textContent?.includes("Preparing your workspace"))
+      .forEach((node) => { node.textContent = "Cloud synced"; });
+
+    const headerStatusRow = Array.from(document.querySelectorAll("header div"))
+      .find((node) => textOf(node).includes("Cloud synced") || textOf(node).includes("Preview mode"));
+    if (headerStatusRow && !headerStatusRow.querySelector(".auty-v25-badge")) {
+      const badge = document.createElement("span");
+      badge.className = "auty-v25-badge";
+      badge.textContent = "v2.5";
+      headerStatusRow.appendChild(badge);
+    }
 
     const dashboardCopy = Array.from(document.querySelectorAll("p"))
-      .find((node) => node.textContent?.startsWith("Dashboard, Calendar, Client Database"));
-    if (dashboardCopy) dashboardCopy.classList.add("auty-dashboard-copy");
+      .find((node) => textOf(node).startsWith("Dashboard, Calendar, Client Database"));
+    if (dashboardCopy) {
+      dashboardCopy.classList.add("auty-dashboard-copy");
+      const hero = dashboardCopy.closest("section") || dashboardCopy.parentElement;
+      if (hero && !hero.querySelector(".auty-dashboard-operational")) {
+        const ops = document.createElement("div");
+        ops.className = "auty-dashboard-operational";
+        ops.innerHTML = `<button type="button" data-auty-target="Current Job">Current Job</button><button type="button" data-auty-target="Calendar">Map / Calendar</button>`;
+        dashboardCopy.after(ops);
+        ops.querySelector('[data-auty-target="Current Job"]')?.addEventListener("click", () => document.querySelector('button[data-auty-nav="Current Job"]')?.click());
+        ops.querySelector('[data-auty-target="Calendar"]')?.addEventListener("click", () => document.querySelector('button[data-auty-nav="Calendar"]')?.click());
+      }
+    }
 
-    const otherFeaturesHeading = Array.from(document.querySelectorAll("h2, h3"))
-      .find((node) => node.textContent?.trim() === "Other Features");
-    const otherPanel = otherFeaturesHeading?.closest("section") || otherFeaturesHeading?.parentElement;
-    if (otherPanel) otherPanel.classList.add("auty-other-features-panel");
+    const woodworkPanel = findPanelByHeading("Room Woodwork");
+    const otherPanel = findPanelByHeading("Other Features");
+    const woodworkCards = markPanelOptions(woodworkPanel);
+    markPanelOptions(otherPanel);
+
+    const windowSillCard = Array.from(document.querySelectorAll(".auty-option-card"))
+      .find((card) => textOf(card).startsWith("Window Sill"));
+    const woodworkGrid = woodworkCards[0]?.parentElement || woodworkPanel?.querySelector(".auty-option-grid");
+    if (windowSillCard && woodworkGrid && !woodworkGrid.contains(windowSillCard)) {
+      woodworkGrid.appendChild(windowSillCard);
+    }
 
     const label = Array.from(document.querySelectorAll("p"))
-      .find((node) => node.textContent?.trim() === "Business Calendar");
+      .find((node) => textOf(node) === "Business Calendar");
     const calendarSection = label?.closest("section");
     const page = calendarSection?.parentElement;
-    if (!calendarSection || !page) return;
-
-    page.classList.add("auty-calendar-page");
-
-    const dayGrid = Array.from(calendarSection.querySelectorAll(".grid.grid-cols-7.gap-2"))
-      .find((grid) => grid.querySelector("button[title]"));
-    if (!dayGrid) return;
-
-    dayGrid.setAttribute("data-auty-calendar-grid", "true");
-    Array.from(dayGrid.children).forEach((cell) => {
-      const eventTray = Array.from(cell.children)
-        .find((child) => child.querySelector?.("button[title]"));
-      if (eventTray) eventTray.setAttribute("data-auty-calendar-events", "true");
-    });
+    if (calendarSection && page) {
+      page.classList.add("auty-calendar-page");
+      const dayGrid = Array.from(calendarSection.querySelectorAll(".grid.grid-cols-7.gap-2"))
+        .find((grid) => grid.querySelector("button[title]"));
+      if (dayGrid) {
+        dayGrid.setAttribute("data-auty-calendar-grid", "true");
+        Array.from(dayGrid.children).forEach((cell) => {
+          const eventTray = Array.from(cell.children).find((child) => child.querySelector?.("button[title]"));
+          if (eventTray) eventTray.setAttribute("data-auty-calendar-events", "true");
+        });
+      }
+    }
   };
 
   const scheduleMark = () => {
     if (scheduled) return;
     scheduled = true;
-    window.requestAnimationFrame(markCalendar);
+    window.requestAnimationFrame(markV25);
   };
 
   window.addEventListener("load", scheduleMark);
