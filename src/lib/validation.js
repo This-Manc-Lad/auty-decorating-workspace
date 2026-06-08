@@ -1,3 +1,4 @@
+import "./job-overview-contrast-fix.js";
 import { MAX_PHOTO_SIZE_BYTES } from "./constants.js";
 import { calculateQuote, number } from "./utils.js";
 
