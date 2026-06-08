@@ -20,6 +20,110 @@ function installCalendarPolish() {
   const style = document.createElement("style");
   style.id = "auty-calendar-polish";
   style.textContent = `
+    body {
+      background: linear-gradient(180deg, #d9e6e8 0%, #c9d8de 48%, #acbdc6 100%) !important;
+    }
+
+    #root > div.min-h-screen {
+      background: radial-gradient(circle at top left, rgba(0,184,198,.18), transparent 24%), radial-gradient(circle at 82% 12%, rgba(212,175,55,.13), transparent 22%), linear-gradient(180deg, #dce8eb 0%, #c9d8de 54%, #b3c4cc 100%) !important;
+    }
+
+    header,
+    section,
+    article,
+    aside > div {
+      box-shadow: 0 22px 58px rgba(15, 23, 42, .12), inset 0 1px 0 rgba(255,255,255,.78) !important;
+    }
+
+    button[class*="#d4af37"][class*="#00b8c6"],
+    .auty-teal-action {
+      background: linear-gradient(135deg, #00b8c6 0%, #10c8ba 100%) !important;
+      color: #061019 !important;
+      box-shadow: 0 16px 36px rgba(0, 184, 198, .28), inset 0 1px 0 rgba(255,255,255,.35) !important;
+    }
+
+    button[class*="#d4af37"][class*="#00b8c6"]:hover,
+    .auty-teal-action:hover {
+      filter: saturate(1.08) brightness(1.02) !important;
+    }
+
+    .auty-select-card {
+      display: grid !important;
+      place-items: center !important;
+      min-height: 6.8rem !important;
+      text-align: center !important;
+      gap: .55rem !important;
+      box-shadow: 0 16px 34px rgba(15,23,42,.08), 0 0 0 1px rgba(255,255,255,.64), 0 0 26px rgba(0,184,198,.08) !important;
+    }
+
+    .auty-select-card:hover,
+    .auty-select-card[class*="border-slate-900"] {
+      transform: translateY(-2px) !important;
+      box-shadow: 0 20px 42px rgba(15,23,42,.12), 0 0 30px rgba(0,184,198,.22), inset 0 1px 0 rgba(255,255,255,.72) !important;
+    }
+
+    .auty-select-card svg {
+      margin: 0 auto !important;
+    }
+
+    .auty-choice {
+      min-width: 4.35rem !important;
+      border: 1px solid rgba(255,255,255,.7) !important;
+      backdrop-filter: blur(16px) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 9px 22px rgba(15,23,42,.08) !important;
+    }
+
+    .auty-choice-yes {
+      background: linear-gradient(135deg, rgba(16,185,129,.20), rgba(255,255,255,.55)) !important;
+      color: #047857 !important;
+    }
+
+    .auty-choice-partial {
+      background: linear-gradient(135deg, rgba(245,158,11,.24), rgba(255,255,255,.55)) !important;
+      color: #92400e !important;
+    }
+
+    .auty-choice-no {
+      background: linear-gradient(135deg, rgba(226,232,240,.74), rgba(255,255,255,.48)) !important;
+      color: #334155 !important;
+    }
+
+    .auty-choice[class*="bg-slate-900"] {
+      color: #061019 !important;
+      transform: translateY(-1px) !important;
+    }
+
+    .auty-choice-yes[class*="bg-slate-900"] {
+      background: linear-gradient(135deg, #22c55e, #10b981) !important;
+    }
+
+    .auty-choice-partial[class*="bg-slate-900"] {
+      background: linear-gradient(135deg, #f59e0b, #fbbf24) !important;
+    }
+
+    .auty-choice-no[class*="bg-slate-900"] {
+      background: linear-gradient(135deg, #0f172a, #1e293b) !important;
+      color: #ffffff !important;
+    }
+
+    .auty-dashboard-copy {
+      font-size: .95rem !important;
+      line-height: 1.55 !important;
+    }
+
+    .auty-dashboard-copy::before {
+      content: "Today: open Current Job for the live overview. Next job: check Calendar for upcoming work and directions.";
+      display: block;
+    }
+
+    .auty-dashboard-copy {
+      font-size: 0 !important;
+    }
+
+    .auty-dashboard-copy::before {
+      font-size: .95rem !important;
+    }
+
     .auty-calendar-page {
       display: block !important;
     }
@@ -107,6 +211,13 @@ function installCalendarPolish() {
       margin-top: .1rem;
     }
 
+    @media (min-width: 740px) {
+      .auty-other-features-panel > div:last-child,
+      .auty-other-features-panel .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+    }
+
     @media (min-width: 1024px) {
       .auty-calendar-page [data-auty-calendar-grid="true"] > div {
         min-height: 10.9rem !important;
@@ -114,6 +225,10 @@ function installCalendarPolish() {
     }
 
     @media (max-width: 720px) {
+      header {
+        margin-top: .15rem !important;
+      }
+
       .auty-calendar-page > section {
         padding: .9rem !important;
       }
@@ -154,6 +269,29 @@ function installCalendarPolish() {
   let scheduled = false;
   const markCalendar = () => {
     scheduled = false;
+
+    Array.from(document.querySelectorAll("button")).forEach((button) => {
+      const text = button.textContent?.trim();
+      if (["Yes", "No", "Partial"].includes(text)) {
+        button.classList.add("auty-choice", `auty-choice-${text.toLowerCase()}`);
+      }
+
+      const hasCardShape = button.className?.toString().includes("rounded-[24px]") && button.querySelector("svg") && button.querySelector("p");
+      if (hasCardShape) button.classList.add("auty-select-card");
+
+      const isPrimaryAction = button.className?.toString().includes("#d4af37") && button.className?.toString().includes("#00b8c6");
+      if (isPrimaryAction) button.classList.add("auty-teal-action");
+    });
+
+    const dashboardCopy = Array.from(document.querySelectorAll("p"))
+      .find((node) => node.textContent?.startsWith("Dashboard, Calendar, Client Database"));
+    if (dashboardCopy) dashboardCopy.classList.add("auty-dashboard-copy");
+
+    const otherFeaturesHeading = Array.from(document.querySelectorAll("h2, h3"))
+      .find((node) => node.textContent?.trim() === "Other Features");
+    const otherPanel = otherFeaturesHeading?.closest("section") || otherFeaturesHeading?.parentElement;
+    if (otherPanel) otherPanel.classList.add("auty-other-features-panel");
+
     const label = Array.from(document.querySelectorAll("p"))
       .find((node) => node.textContent?.trim() === "Business Calendar");
     const calendarSection = label?.closest("section");
