@@ -8,7 +8,8 @@ export function validateClient(client, { requireAddress = false } = {}) {
   if (!client?.surname?.trim()) errors.push("Client surname is required.");
   if (!client?.telephone?.trim() && !client?.email?.trim()) errors.push("Add either a telephone number or an email address.");
   if (client?.email?.trim() && !EMAIL_RE.test(client.email.trim())) errors.push("Enter a valid email address.");
-  if (requireAddress && !client?.address?.trim()) errors.push("Client address is required for quotations and invoices.");
+  // Address is useful, but no longer blocks quote or invoice generation.
+  // A client can be quoted or invoiced with either telephone or email contact details.
   return errors;
 }
 
@@ -59,4 +60,3 @@ export function validatePhotoUpload(file, form) {
 export function formatErrors(errors) {
   return errors.filter(Boolean).join(" ");
 }
-
