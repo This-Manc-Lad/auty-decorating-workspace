@@ -14,6 +14,47 @@ async function toDataUrl(url) {
   });
 }
 
+function sentenceList(items) {
+  const clean = items.filter(Boolean);
+  if (!clean.length) return "general decorating works";
+  if (clean.length === 1) return clean[0];
+  return `${clean.slice(0, -1).join(", ")} and ${clean.at(-1)}`;
+}
+
+function roomDescription(room) {
+  const items = [];
+  if (room.ceiling === "Yes") items.push("ceiling preparation and coating");
+  if (room.jobType === "Painting" || room.jobType === "Combination") items.push("wall painting");
+  if (room.jobType === "Wallpapering" || room.jobType === "Combination") items.push("wallpapering");
+  if (room.skirtingBoards !== "No") items.push("skirting boards");
+  if (room.architrave !== "No") items.push("architrave");
+  if (room.doors !== "No") items.push("doors");
+
+  const features = room.otherFeatures || {};
+  const labels = {
+    dadoRails: "dado rails",
+    pictureRails: "picture rails",
+    radiators: "radiators",
+    windowSill: "window sill",
+    banister: "banister",
+    spindles: "spindles",
+    stairsFeature: "stairs",
+    floor: "floor",
+    other: "additional features"
+  };
+  Object.entries(labels).forEach(([key, label]) => {
+    if (features[key] && features[key] !== "No") items.push(label);
+  });
+
+  return `Includes ${sentenceList(items)}.`;
+}
+
+function shouldPrintWholeJobSpecifics(text = "") {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  return !/:\s*(Painting|Wallpapering|Combination|Other) including/i.test(trimmed);
+}
+
 export async function generateWorkspacePdf({ kind, quote, invoice, data }) {
   const jsPDF = window.jspdf?.jsPDF;
   if (!jsPDF || !quote) throw new Error("PDF library unavailable");
@@ -117,33 +158,23 @@ export async function generateWorkspacePdf({ kind, quote, invoice, data }) {
     ], kind === "quote" ? [248, 245, 238] : [239, 247, 243]);
 
   sectionTitle("Room Breakdown");
-  doc.setFillColor(236, 241, 246);
-  doc.roundedRect(margin, y - 3.5, usableWidth, 8, 2, 2, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.setTextColor(34, 48, 71);
-  doc.text("Room", margin + 3, y + 1.5);
-  doc.text("Type", margin + 43, y + 1.5);
-  doc.text("Time", margin + 82, y + 1.5);
-  doc.text("Price", margin + 103, y + 1.5);
-  doc.text("Description", margin + 125, y + 1.5);
-  y += 8.5;
-
   calc.rooms.forEach((room) => {
-    const description = doc.splitTextToSize(room.generatedDescription || "", 66);
-    const rowHeight = Math.max(10, description.length * 4 + 4);
+    const type = room.jobType === "Other" ? room.otherJobType || "Other" : room.jobType;
+    const description = doc.splitTextToSize(roomDescription(room), usableWidth - 10);
+    const rowHeight = Math.max(18, description.length * 4.4 + 12);
     ensureSpace(rowHeight + 2);
-    doc.setDrawColor(227, 221, 208);
-    doc.roundedRect(margin, y - 2, usableWidth, rowHeight, 2, 2, "S");
+    doc.setFillColor(252, 250, 246);
+    doc.roundedRect(margin, y - 3, usableWidth, rowHeight, 3, 3, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-    doc.text(room.roomName, margin + 3, y + 2);
+    doc.setFontSize(10.5);
+    doc.setTextColor(24, 34, 48);
+    doc.text(room.roomName || "Room", margin + 4, y + 2);
     doc.setFont("helvetica", "normal");
-    doc.text(room.jobType === "Other" ? room.otherJobType || "Other" : room.jobType, margin + 43, y + 2);
-    doc.text(`${room.estimatedDays} d`, margin + 82, y + 2);
-    doc.text(money(room.finalRoomPrice), margin + 103, y + 2);
-    doc.text(description, margin + 125, y + 2);
-    y += rowHeight + 2;
+    doc.setFontSize(9);
+    doc.setTextColor(82, 92, 106);
+    doc.text(`${type} | ${room.estimatedDays} day(s) | ${money(room.finalRoomPrice)}`, margin + 4, y + 8);
+    doc.text(description, margin + 4, y + 14);
+    y += rowHeight + 3;
   });
 
   infoCard("Price Summary", [
@@ -156,7 +187,7 @@ export async function generateWorkspacePdf({ kind, quote, invoice, data }) {
     `Remainder due on completion: ${money(calc.remainderAmount)}`
   ], [255, 248, 232]);
 
-  if (quote.wholeJobSpecifics) {
+  if (shouldPrintWholeJobSpecifics(quote.wholeJobSpecifics)) {
     infoCard("Whole Job Specifics", doc.splitTextToSize(quote.wholeJobSpecifics, usableWidth - 10), [245, 247, 255]);
   }
 
