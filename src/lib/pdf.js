@@ -1,4 +1,4 @@
-import { calculateQuote, displayName, money, shortDate } from "./utils.js";
+import { calculateQuote, displayName, money, shortDate, today } from "./utils.js";
 
 const DEFAULT_PDF_LOGO = "./branding/auty-logo-light.jpg";
 
