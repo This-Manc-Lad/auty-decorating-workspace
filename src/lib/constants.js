@@ -1,3 +1,5 @@
+import "./auty-v26.js";
+
 export const STORAGE_KEY = "auty-decorating-mvp-v2";
 export const LEGACY_KEYS = ["auty-decorating-mvp-v1"];
 export const DAY_RATE = 150;
@@ -10,7 +12,7 @@ export const PHOTO_BUCKET_FOLDER = "photos";
 export const MAIN_TABS = ["Dashboard", "Calendar", "Client Database", "Current Job"];
 export const JOB_TABS = ["Room Quoter", "Job Overview", "Invoice Generator", "Photos & Attachments"];
 export const QUOTE_STATUSES = ["Draft", "Sent", "Awaiting Approval", "Accepted", "In Progress", "Complete", "Invoice Due", "Paid"];
-export const CALENDAR_TYPES = ["Personal Time", "Potential Job (Unconfirmed)", "Other Work", "Booked Job", "Quote Visit", "Invoice Due", "Other"];
+export const CALENDAR_TYPES = ["Personal Time", "Potential Job (Unconfirmed)", "Other Work", "Booked Job", "Quote Visit", "Invoice Due", "Reminder", "Other"];
 export const PHOTO_TYPES = ["Before", "During", "After", "Damage", "Materials", "Other"];
 
 export const ROOM_PRESETS = [
@@ -82,4 +84,3 @@ export const initialState = {
     calendarSyncEnabled: false
   }
 };
-
