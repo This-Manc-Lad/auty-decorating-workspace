@@ -1,5 +1,7 @@
 import { ADJUSTMENT_OPTIONS, DAY_RATE, LEGACY_KEYS, OTHER_FEATURE_KEYS, STORAGE_KEY, TIME_OPTIONS, initialState } from "./constants.js";
 
+installCalendarPolish();
+
 export const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 export const money = (value) => `£${number(value).toFixed(2)}`;
 export const today = () => new Date().toISOString().slice(0, 10);
@@ -9,6 +11,186 @@ export const classNames = (...parts) => parts.filter(Boolean).join(" ");
 export const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 export const shortDate = (value) => value ? new Date(`${value}T12:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Not set";
 export const monthStamp = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+function installCalendarPolish() {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (window.__AUTY_CALENDAR_POLISH_INSTALLED__) return;
+  window.__AUTY_CALENDAR_POLISH_INSTALLED__ = true;
+
+  const style = document.createElement("style");
+  style.id = "auty-calendar-polish";
+  style.textContent = `
+    .auty-calendar-page {
+      display: block !important;
+    }
+
+    .auty-calendar-page > section {
+      margin-bottom: 1rem !important;
+    }
+
+    .auty-calendar-page > aside {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 1rem !important;
+    }
+
+    .auty-calendar-page > aside > div:first-child {
+      order: 2 !important;
+    }
+
+    .auty-calendar-page > aside > div:nth-child(2) {
+      order: 1 !important;
+    }
+
+    .auty-calendar-page [data-auty-calendar-grid="true"] {
+      gap: .45rem !important;
+    }
+
+    .auty-calendar-page [data-auty-calendar-grid="true"] > div {
+      min-height: 9.5rem !important;
+      overflow: visible !important;
+      padding: .75rem !important;
+      border-radius: 1.35rem !important;
+    }
+
+    .auty-calendar-page [data-auty-calendar-events="true"] {
+      display: grid !important;
+      grid-auto-rows: 1.2rem !important;
+      align-content: start !important;
+      gap: .3rem !important;
+      margin-top: 1rem !important;
+      overflow: visible !important;
+    }
+
+    .auty-calendar-page [data-auty-calendar-events="true"] > button[title] {
+      display: block !important;
+      width: calc(100% + .9rem) !important;
+      height: 1.15rem !important;
+      min-height: 1.15rem !important;
+      margin-left: -.45rem !important;
+      margin-right: -.45rem !important;
+      border-radius: 999px !important;
+      overflow: hidden !important;
+      transform: none !important;
+      box-shadow: 0 .55rem 1.3rem rgba(15, 23, 42, .13) !important;
+    }
+
+    .auty-calendar-page [data-auty-calendar-events="true"] > button[title]:hover {
+      transform: translateY(-1px) !important;
+      z-index: 25 !important;
+    }
+
+    .auty-calendar-page [data-auty-calendar-events="true"] > button[title]::after {
+      content: attr(title);
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      padding: 0 .55rem;
+      color: rgba(15, 23, 42, .88);
+      font-size: .58rem;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-shadow: 0 1px 0 rgba(255,255,255,.38);
+    }
+
+    .auty-calendar-page [data-auty-calendar-events="true"] > button[title] > div {
+      top: 1.45rem !important;
+    }
+
+    .auty-calendar-page [data-auty-calendar-events="true"] > p {
+      align-self: center;
+      margin-top: .1rem;
+    }
+
+    @media (min-width: 1024px) {
+      .auty-calendar-page [data-auty-calendar-grid="true"] > div {
+        min-height: 10.9rem !important;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .auty-calendar-page > section {
+        padding: .9rem !important;
+      }
+
+      .auty-calendar-page [data-auty-calendar-grid="true"] {
+        gap: .28rem !important;
+      }
+
+      .auty-calendar-page [data-auty-calendar-grid="true"] > div {
+        min-height: 5.9rem !important;
+        padding: .42rem !important;
+        border-radius: 1rem !important;
+      }
+
+      .auty-calendar-page [data-auty-calendar-events="true"] {
+        margin-top: .55rem !important;
+        grid-auto-rows: .7rem !important;
+        gap: .16rem !important;
+      }
+
+      .auty-calendar-page [data-auty-calendar-events="true"] > button[title] {
+        height: .68rem !important;
+        min-height: .68rem !important;
+        width: calc(100% + .45rem) !important;
+        margin-left: -.225rem !important;
+        margin-right: -.225rem !important;
+      }
+
+      .auty-calendar-page [data-auty-calendar-events="true"] > button[title]::after {
+        content: "";
+        padding: 0;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
+
+  let scheduled = false;
+  const markCalendar = () => {
+    scheduled = false;
+    const label = Array.from(document.querySelectorAll("p"))
+      .find((node) => node.textContent?.trim() === "Business Calendar");
+    const calendarSection = label?.closest("section");
+    const page = calendarSection?.parentElement;
+    if (!calendarSection || !page) return;
+
+    page.classList.add("auty-calendar-page");
+
+    const dayGrid = Array.from(calendarSection.querySelectorAll(".grid.grid-cols-7.gap-2"))
+      .find((grid) => grid.querySelector("button[title]"));
+    if (!dayGrid) return;
+
+    dayGrid.setAttribute("data-auty-calendar-grid", "true");
+    Array.from(dayGrid.children).forEach((cell) => {
+      const eventTray = Array.from(cell.children)
+        .find((child) => child.querySelector?.("button[title]"));
+      if (eventTray) eventTray.setAttribute("data-auty-calendar-events", "true");
+    });
+  };
+
+  const scheduleMark = () => {
+    if (scheduled) return;
+    scheduled = true;
+    window.requestAnimationFrame(markCalendar);
+  };
+
+  window.addEventListener("load", scheduleMark);
+  window.setTimeout(scheduleMark, 250);
+  window.setTimeout(scheduleMark, 1200);
+
+  const observer = new MutationObserver(scheduleMark);
+  const startObserver = () => {
+    if (document.body) observer.observe(document.body, { childList: true, subtree: true });
+  };
+  if (document.body) startObserver();
+  else document.addEventListener("DOMContentLoaded", startObserver, { once: true });
+}
 
 export function addDays(date, days) {
   if (!date) return "";
@@ -301,4 +483,3 @@ export function roomAutoPrice(room, dayRate = DAY_RATE) {
 export function defaultTimeOption(value) {
   return TIME_OPTIONS.find((option) => option.value === value) || TIME_OPTIONS[1];
 }
-
