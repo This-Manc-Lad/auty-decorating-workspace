@@ -2,7 +2,20 @@ import { createClient } from "@supabase/supabase-js";
 
 let cachedClient = null;
 
+export function isLocalPreviewForced() {
+  try {
+    const params = new URLSearchParams(globalThis.location?.search || "");
+    return params.has("preview") || params.has("local") || params.has("recovery");
+  } catch {
+    return false;
+  }
+}
+
 export function getSupabaseConfig() {
+  if (isLocalPreviewForced()) {
+    return { url: "", anonKey: "" };
+  }
+
   const env = typeof import.meta !== "undefined" ? import.meta.env || {} : {};
   const win = globalThis;
   return {
@@ -17,6 +30,11 @@ export function isSupabaseConfigured() {
 }
 
 export function getSupabaseClient() {
+  if (isLocalPreviewForced()) {
+    cachedClient = null;
+    return null;
+  }
+
   if (cachedClient) return cachedClient;
   const { url, anonKey } = getSupabaseConfig();
   if (!url || !anonKey) return null;
@@ -29,4 +47,3 @@ export function getSupabaseClient() {
   });
   return cachedClient;
 }
-
