@@ -2,6 +2,8 @@ import { LOGO_BUCKET_FOLDER, PHOTO_BUCKET, PHOTO_BUCKET_FOLDER } from "./constan
 import { normaliseState, today, uid } from "./utils.js";
 import { getSupabaseClient } from "./supabase.js";
 
+const SUPABASE_TIMEOUT_MS = 8000;
+
 const TABLES = {
   clients: { table: "clients", idField: "client_id" },
   quotes: { table: "quotes", idField: "quote_id" },
@@ -15,6 +17,15 @@ async function requireClient() {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error("Supabase is not configured.");
   return supabase;
+}
+
+function withTimeout(promise, label = "Supabase request") {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error(`${label} timed out. Check the Supabase URL, anon key, project status, and network connection.`)), SUPABASE_TIMEOUT_MS);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timer));
 }
 
 function camelCaseFromSnake(value) {
@@ -55,7 +66,10 @@ function rowPayload(key, idField, item, userId) {
 async function signedUrlFor(path) {
   if (!path) return "";
   const supabase = await requireClient();
-  const { data, error } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(path, 60 * 60 * 24 * 7);
+  const { data, error } = await withTimeout(
+    supabase.storage.from(PHOTO_BUCKET).createSignedUrl(path, 60 * 60 * 24 * 7),
+    "Creating signed media URL"
+  );
   if (error) throw error;
   return data?.signedUrl || "";
 }
@@ -80,19 +94,25 @@ async function hydrateSettings(settings) {
 export async function fetchWorkspaceData(userId) {
   const supabase = await requireClient();
   const tableQueries = Object.entries(TABLES).map(async ([key, config]) => {
-    const { data, error } = await supabase
-      .from(config.table)
-      .select("payload")
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false });
+    const { data, error } = await withTimeout(
+      supabase
+        .from(config.table)
+        .select("payload")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false }),
+      `Loading ${config.table}`
+    );
     if (error) throw error;
     return [key, (data || []).map((row) => row.payload)];
   });
-  const settingsQuery = supabase
-    .from("workspace_settings")
-    .select("payload")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const settingsQuery = withTimeout(
+    supabase
+      .from("workspace_settings")
+      .select("payload")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    "Loading workspace settings"
+  );
 
   const tableResults = await Promise.all(tableQueries);
   const { data: settingsRow, error: settingsError } = await settingsQuery;
@@ -110,7 +130,7 @@ export async function upsertEntity(key, item, userId) {
   const config = TABLES[key];
   if (!config) throw new Error(`Unknown entity ${key}`);
   const row = rowPayload(key, config.idField, item, userId);
-  const { error } = await supabase.from(config.table).upsert(row);
+  const { error } = await withTimeout(supabase.from(config.table).upsert(row), `Saving ${config.table}`);
   if (error) throw error;
   return item;
 }
@@ -122,36 +142,48 @@ export async function deleteEntity(key, idValue, userId) {
 
   let storagePath = "";
   if (key === "photos") {
-    const { data, error } = await supabase
-      .from(config.table)
-      .select("payload")
-      .eq(config.idField, idValue)
-      .eq("user_id", userId)
-      .maybeSingle();
+    const { data, error } = await withTimeout(
+      supabase
+        .from(config.table)
+        .select("payload")
+        .eq(config.idField, idValue)
+        .eq("user_id", userId)
+        .maybeSingle(),
+      "Finding photo before delete"
+    );
     if (error && error.code !== "PGRST116") throw error;
     storagePath = data?.payload?.storagePath || "";
   }
 
-  const { error } = await supabase
-    .from(config.table)
-    .delete()
-    .eq(config.idField, idValue)
-    .eq("user_id", userId);
+  const { error } = await withTimeout(
+    supabase
+      .from(config.table)
+      .delete()
+      .eq(config.idField, idValue)
+      .eq("user_id", userId),
+    `Deleting ${config.table}`
+  );
   if (error) throw error;
 
   if (storagePath) {
-    const { error: storageError } = await supabase.storage.from(PHOTO_BUCKET).remove([storagePath]);
+    const { error: storageError } = await withTimeout(
+      supabase.storage.from(PHOTO_BUCKET).remove([storagePath]),
+      "Deleting stored photo"
+    );
     if (storageError) console.warn("Photo record deleted, but storage cleanup failed:", storageError.message);
   }
 }
 
 export async function upsertSettings(settings, userId) {
   const supabase = await requireClient();
-  const { error } = await supabase.from("workspace_settings").upsert({
-    user_id: userId,
-    payload: settingsPayload(settings),
-    updated_at: new Date().toISOString()
-  });
+  const { error } = await withTimeout(
+    supabase.from("workspace_settings").upsert({
+      user_id: userId,
+      payload: settingsPayload(settings),
+      updated_at: new Date().toISOString()
+    }),
+    "Saving workspace settings"
+  );
   if (error) throw error;
   return settings;
 }
@@ -161,10 +193,13 @@ export async function replaceWorkspaceData(data, userId) {
   const orderedKeys = Object.keys(TABLES);
   for (const key of orderedKeys) {
     const config = TABLES[key];
-    const { error } = await supabase.from(config.table).delete().eq("user_id", userId);
+    const { error } = await withTimeout(supabase.from(config.table).delete().eq("user_id", userId), `Clearing ${config.table}`);
     if (error) throw error;
   }
-  const { error: settingsDeleteError } = await supabase.from("workspace_settings").delete().eq("user_id", userId);
+  const { error: settingsDeleteError } = await withTimeout(
+    supabase.from("workspace_settings").delete().eq("user_id", userId),
+    "Clearing workspace settings"
+  );
   if (settingsDeleteError) throw settingsDeleteError;
 
   for (const key of orderedKeys) {
@@ -180,7 +215,10 @@ export async function uploadPhoto(file, meta, userId) {
   const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const photoId = uid("photo");
   const storagePath = `${userId}/${PHOTO_BUCKET_FOLDER}/${meta.quoteId}/${photoId}.${extension}`;
-  const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(storagePath, file, { upsert: true });
+  const { error } = await withTimeout(
+    supabase.storage.from(PHOTO_BUCKET).upload(storagePath, file, { upsert: true }),
+    "Uploading photo"
+  );
   if (error) throw error;
   const imageUrl = await signedUrlFor(storagePath);
   return {
@@ -200,7 +238,10 @@ export async function uploadLogo(file, userId) {
   const supabase = await requireClient();
   const extension = file.name.split(".").pop()?.toLowerCase() || "png";
   const storagePath = `${userId}/${LOGO_BUCKET_FOLDER}/workspace-logo.${extension}`;
-  const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(storagePath, file, { upsert: true });
+  const { error } = await withTimeout(
+    supabase.storage.from(PHOTO_BUCKET).upload(storagePath, file, { upsert: true }),
+    "Uploading logo"
+  );
   if (error) throw error;
   const logoUrl = await signedUrlFor(storagePath);
   return { logoPath: storagePath, logoUrl };
@@ -208,27 +249,33 @@ export async function uploadLogo(file, userId) {
 
 export async function signInWithPassword(email, password) {
   const supabase = await requireClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await withTimeout(
+    supabase.auth.signInWithPassword({ email, password }),
+    "Signing in"
+  );
   if (error) throw error;
   return data;
 }
 
 export async function signUpWithPassword(email, password) {
   const supabase = await requireClient();
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await withTimeout(
+    supabase.auth.signUp({ email, password }),
+    "Creating account"
+  );
   if (error) throw error;
   return data;
 }
 
 export async function signOut() {
   const supabase = await requireClient();
-  const { error } = await supabase.auth.signOut();
+  const { error } = await withTimeout(supabase.auth.signOut(), "Signing out");
   if (error) throw error;
 }
 
 export async function getSession() {
   const supabase = await requireClient();
-  const { data, error } = await supabase.auth.getSession();
+  const { data, error } = await withTimeout(supabase.auth.getSession(), "Checking existing sign-in session");
   if (error) throw error;
   return data.session;
 }
