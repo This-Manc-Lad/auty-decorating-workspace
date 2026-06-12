@@ -1,7 +1,5 @@
 import { ADJUSTMENT_OPTIONS, DAY_RATE, LEGACY_KEYS, OTHER_FEATURE_KEYS, STORAGE_KEY, TIME_OPTIONS, initialState } from "./constants.js";
 
-installAutyV25Polish();
-
 export const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 export const money = (value) => `£${number(value).toFixed(2)}`;
 export const today = () => new Date().toISOString().slice(0, 10);
@@ -298,22 +296,6 @@ function installAutyV25Polish() {
 
     .auty-calendar-page [data-auty-calendar-events="true"] > button[title] > div {
       top: 1.45rem !important;
-    }
-
-    nav button[data-auty-nav="Dashboard"] {
-      order: 3;
-    }
-
-    nav button[data-auty-nav="Client Database"] {
-      order: 2;
-    }
-
-    nav button[data-auty-nav="Current Job"] {
-      order: 4;
-    }
-
-    nav button[data-auty-nav="Calendar"] {
-      order: 1;
     }
 
     @media (min-width: 1024px) {
@@ -697,6 +679,7 @@ export function updateLinkedCollections(clientId, quoteIds, roomIds, removeItem)
 export function normaliseState(source = {}) {
   const merged = { ...initialState, ...(source || {}) };
   merged.settings = { ...initialState.settings, ...(merged.settings || {}) };
+  if (!merged.settings.defaultDeposit || merged.settings.defaultDeposit === "20%") merged.settings.defaultDeposit = "50%";
   merged.clients = (merged.clients || []).map((client) => {
     const split = splitName(client.name);
     return {
@@ -754,6 +737,9 @@ export function normaliseState(source = {}) {
   }));
   merged.calendarEntries = (merged.calendarEntries || []).map((entry) => ({
     syncStatus: "not_connected",
+    startTime: "09:00",
+    reminderType: "Upcoming appointment",
+    reminderStatus: "Pending",
     externalCalendarId: "",
     externalEventId: "",
     externalProvider: "",

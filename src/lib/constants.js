@@ -1,5 +1,3 @@
-import "./auty-v26.js";
-
 export const STORAGE_KEY = "auty-decorating-mvp-v2";
 export const LEGACY_KEYS = ["auty-decorating-mvp-v1"];
 export const DAY_RATE = 150;
@@ -9,9 +7,9 @@ export const PHOTO_BUCKET = "auty-media";
 export const LOGO_BUCKET_FOLDER = "logos";
 export const PHOTO_BUCKET_FOLDER = "photos";
 
-export const MAIN_TABS = ["Dashboard", "Calendar", "Client Database", "Current Job"];
+export const MAIN_TABS = ["Dashboard", "Calendar", "Client Database", "Quoter"];
 export const JOB_TABS = ["Room Quoter", "Job Overview", "Invoice Generator", "Photos & Attachments"];
-export const QUOTE_STATUSES = ["Draft", "Sent", "Awaiting Approval", "Accepted", "In Progress", "Complete", "Invoice Due", "Paid"];
+export const QUOTE_STATUSES = ["Draft", "Sent", "Awaiting Approval", "Accepted", "Declined", "In Progress", "Converted to Job", "Complete", "Invoice Due", "Paid"];
 export const CALENDAR_TYPES = ["Personal Time", "Potential Job (Unconfirmed)", "Other Work", "Booked Job", "Quote Visit", "Invoice Due", "Reminder", "Other"];
 export const PHOTO_TYPES = ["Before", "During", "After", "Damage", "Materials", "Other"];
 
@@ -66,10 +64,11 @@ export const initialState = {
   calendarEntries: [],
   settings: {
     businessName: "AUTY Decorating",
+    decoratorName: "",
     dayRate: DAY_RATE,
     vatEnabled: true,
     vatRate: VAT_RATE,
-    defaultDeposit: "20%",
+    defaultDeposit: "50%",
     businessEmail: "",
     businessTelephone: "",
     businessAddress: "",

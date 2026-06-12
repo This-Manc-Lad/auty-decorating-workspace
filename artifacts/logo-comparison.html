@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AUTY logo comparison</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 32px;
+        background: #d7e4e6;
+        color: #17232d;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1080px; margin: 0 auto; }
+      figure { margin: 0; padding: 20px; border: 1px solid rgba(255,255,255,.8); border-radius: 28px; background: rgba(255,255,255,.48); box-shadow: 0 22px 58px rgba(17,41,54,.14); }
+      figcaption { margin-bottom: 14px; font-size: 14px; }
+      img { display: block; width: 100%; height: 620px; object-fit: contain; border-radius: 18px; background: rgba(255,255,255,.34); }
+      @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <figure>
+        <figcaption>Source logo</figcaption>
+        <img src="../branding/auty-logo.png" alt="Source AUTY Decorating logo" />
+      </figure>
+      <figure>
+        <figcaption>Rendered welcome screen</figcaption>
+        <img src="./auty-welcome-mobile.png" alt="AUTY welcome screen using the supplied logo" />
+      </figure>
+    </main>
+  </body>
+</html>

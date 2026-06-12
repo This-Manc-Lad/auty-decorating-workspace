@@ -1,6 +1,6 @@
 import { calculateQuote, displayName, money, shortDate, today } from "./utils.js";
 
-const DEFAULT_PDF_LOGO = "./branding/auty-logo-light.jpg";
+const DEFAULT_PDF_LOGO = "./branding/auty-logo.png";
 
 async function toDataUrl(url) {
   if (!url) return "";
@@ -56,9 +56,9 @@ function shouldPrintWholeJobSpecifics(text = "") {
 }
 
 export async function generateWorkspacePdf({ kind, quote, invoice, data }) {
-  const jsPDF = window.jspdf?.jsPDF;
-  if (!jsPDF || !quote) throw new Error("PDF library unavailable");
+  if (!quote) throw new Error("PDF library unavailable");
 
+  const { jsPDF } = await import("jspdf");
   const client = data.clients.find((entry) => entry.clientId === quote.clientId);
   const calc = calculateQuote(quote, data.rooms, data.settings);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -130,6 +130,7 @@ export async function generateWorkspacePdf({ kind, quote, invoice, data }) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   const businessMeta = [
+    data.settings.decoratorName ? `Decorator: ${data.settings.decoratorName}` : "",
     data.settings.businessTelephone,
     data.settings.businessEmail,
     data.settings.businessAddress
@@ -218,7 +219,7 @@ export async function generateWorkspacePdf({ kind, quote, invoice, data }) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(108, 117, 125);
-  doc.text(`${data.settings.businessName || "AUTY Decorating"} | Generated ${shortDate(today())}`, margin, pageHeight - 9);
+  doc.text(`${data.settings.businessName || "AUTY Decorating"}${data.settings.decoratorName ? ` | ${data.settings.decoratorName}` : ""} | Generated ${shortDate(today())}`, margin, pageHeight - 9);
 
   doc.save(kind === "quote" ? `${quote.quoteReference}.pdf` : `${invoice.invoiceReference}.pdf`);
 }

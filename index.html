@@ -4,34 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AUTY Decorating Workspace</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              auty: {
-                ink: "#1B1E24",
-                navy: "#0A0F1F",
-                teal: "#00B8C6",
-                silver: "#C0C6CC",
-                gold: "#D4AF37",
-                cream: "#F6F1E8",
-                paper: "#FFFDFC",
-                line: "#D9DDE3",
-                green: "#3CB371",
-                amber: "#C8922C",
-                red: "#C95252"
-              }
-            }
-          }
-        }
-      };
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script>
       window.__AUTY_SUPABASE_URL__ = "https://tnpifvyldqfazghyepyn.supabase.co";
       window.__AUTY_SUPABASE_ANON_KEY__ = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRucGlmdnlsZHFmYXpnaHllcHluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4NTc3NTEsImV4cCI6MjA5NjQzMzc1MX0.2lYGZ-jEEkrIRELskUo7SUyeOkOoPxYjfAtjnVVq7yc";
@@ -43,18 +15,6 @@
 
       * {
         box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        font-family: "Manrope", sans-serif;
-        min-height: 100vh;
-      }
-
-      h1,
-      h2,
-      h3 {
-        font-family: "Fraunces", serif;
       }
 
       @keyframes fadeIn {
@@ -79,19 +39,9 @@
         }
       }
     </style>
-    <script type="importmap">
-      {
-        "imports": {
-          "react": "https://esm.sh/react@18.3.1",
-          "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-          "lucide-react": "https://esm.sh/lucide-react@0.468.0?external=react",
-          "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.49.8"
-        }
-      }
-    </script>
   </head>
   <body class="bg-auty-cream text-auty-ink">
     <div id="root"></div>
-    <script type="module" src="./src/main.js?v=boot-timeout-20260608"></script>
+    <script type="module" src="./src/main.js"></script>
   </body>
 </html>
