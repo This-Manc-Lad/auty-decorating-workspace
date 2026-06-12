@@ -97,10 +97,45 @@ button.is-active :where(*) {
 }
 
 .auty-app-shell {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
   background:
     radial-gradient(circle at 14% 2%, rgba(255, 255, 255, 0.66), transparent 24rem),
     radial-gradient(circle at 86% 10%, rgba(7, 139, 152, 0.16), transparent 24rem),
     linear-gradient(155deg, rgba(234, 243, 244, 0.82), rgba(175, 196, 201, 0.8));
+}
+
+.auty-app-shell::before,
+.auty-app-shell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.auty-app-shell::before {
+  opacity: 0.16;
+  background-image:
+    repeating-linear-gradient(112deg, rgba(255, 255, 255, 0.34) 0 1px, transparent 1px 9px),
+    repeating-linear-gradient(22deg, rgba(17, 63, 76, 0.07) 0 1px, transparent 1px 13px);
+  mix-blend-mode: soft-light;
+}
+
+.auty-app-shell::after {
+  inset: -12%;
+  opacity: 0.3;
+  background:
+    radial-gradient(circle at 17% 19%, rgba(200, 137, 51, 0.14), transparent 18rem),
+    radial-gradient(circle at 84% 31%, rgba(0, 136, 152, 0.16), transparent 22rem),
+    radial-gradient(circle at 48% 88%, rgba(255, 255, 255, 0.3), transparent 21rem);
+  animation: autyAmbientFloat 22s ease-in-out infinite alternate;
+}
+
+.auty-app-shell > * {
+  position: relative;
+  z-index: 1;
 }
 
 .auty-app-shell section,
@@ -115,6 +150,7 @@ button.is-active :where(*) {
   backdrop-filter: blur(28px) saturate(1.25) !important;
   -webkit-backdrop-filter: blur(28px) saturate(1.25) !important;
   transition: transform 240ms ease, box-shadow 240ms ease, border-color 240ms ease;
+  animation: autyPanelArrive 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .auty-app-shell section section,
@@ -177,6 +213,15 @@ button.is-active :where(*) {
   -webkit-backdrop-filter: blur(30px) saturate(1.3) !important;
 }
 
+.auty-top-dock::after {
+  content: "";
+  position: absolute;
+  inset: 1px 14% auto;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
+}
+
 .auty-top-logo {
   filter: drop-shadow(0 10px 18px rgba(7, 84, 93, 0.16));
 }
@@ -210,6 +255,22 @@ button.is-active :where(*) {
   color: #fff !important;
   background: #01717f !important;
   box-shadow: 0 12px 28px rgba(7, 139, 152, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.54) !important;
+}
+
+.auty-bottom-dock button,
+.auty-job-tabs button,
+.auty-settings-cog,
+.auty-glass-segment {
+  transform-origin: center;
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.auty-bottom-dock button:active,
+.auty-job-tabs button:active,
+.auty-settings-cog:active,
+.auty-glass-segment:active,
+.auty-app-shell button:active {
+  transform: translateY(1px) scale(0.975);
 }
 
 .auty-glass-slider {
@@ -394,9 +455,36 @@ button.is-active :where(*) {
   100% { opacity: 0; visibility: hidden; }
 }
 
+@keyframes autyPanelArrive {
+  0% { opacity: 0; transform: translateY(9px) scale(0.992); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes autyAmbientFloat {
+  0% { transform: translate3d(-1%, -0.7%, 0) scale(1); }
+  100% { transform: translate3d(1.2%, 1%, 0) scale(1.035); }
+}
+
 @media (min-width: 640px) {
   .auty-job-tabs {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .auty-app-shell section:hover,
+  .auty-app-shell article:hover,
+  .auty-app-shell aside > div:hover {
+    border-color: rgba(255, 255, 255, 0.88) !important;
+    box-shadow: 0 28px 72px rgba(17, 41, 54, 0.16), 0 5px 16px rgba(17, 41, 54, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.94) !important;
+    transform: translateY(-2px);
+  }
+
+  .auty-bottom-dock button:not([aria-current="page"]):hover,
+  .auty-job-tabs button:not([aria-pressed="true"]):hover {
+    color: #056e79;
+    background-color: rgba(255, 255, 255, 0.46) !important;
+    transform: translateY(-1px);
   }
 }
 
