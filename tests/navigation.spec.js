@@ -21,6 +21,9 @@ test("the refreshed workspace navigation and key controls work", async ({ page }
 
   await page.getByLabel("Calendar", { exact: true }).click();
   await expect(page.getByText("Business Calendar")).toBeVisible();
+  await expect(page.locator('[aria-label="Calendar colour key"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Calendar key" }).click();
+  await expect(page.locator('[aria-label="Calendar colour key"]')).toBeVisible();
 
   const dateCell = page.locator('.auty-calendar-cell button[aria-label*="no entries"]').first();
   await dateCell.click();
@@ -117,13 +120,13 @@ test("client database views and multi-day calendar bands are available", async (
   await expect(page.locator('.auty-calendar-cell[data-band="end"]')).toHaveCount(1);
   await page.getByLabel("Clients", { exact: true }).click();
   await page.getByRole("button", { name: "Invoices", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "AUTY-INV-DB" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "AUTY-INV-DB · Robin Lane" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Chase Payment" })).toBeVisible();
   const chase = page.getByRole("button", { name: "Chase Payment" });
   await expect(chase).toHaveAttribute("data-email-subject", "Payment reminder for invoice AUTY-INV-DB");
   await expect(chase).toHaveAttribute("data-email-body", /Hi Robin Lane,[\s\S]*£400.00[\s\S]*AUTY Decorating/);
   await page.getByRole("button", { name: "Quotes Database" }).click();
-  await expect(page.getByRole("heading", { name: "AUTY-Q-DB" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "AUTY-Q-DB · Robin Lane" })).toBeVisible();
 });
 
 test("contacts can be added, edited, saved, loaded, and deleted", async ({ page }) => {
@@ -181,6 +184,7 @@ test("dashboard priorities and invoice payment statuses are actionable", async (
 
   await page.getByLabel("Quoter", { exact: true }).click();
   await page.getByRole("button", { name: "Invoice Generator" }).click();
+  await expect(page.locator('[data-invoice-generator-form="true"]').getByRole("button", { name: "Chase Payment" })).toHaveCount(0);
   const savedInvoice = page.locator('[data-invoice-id="invoice-test"]');
   await savedInvoice.getByRole("button", { name: "Paid", exact: true }).click();
   await expect(savedInvoice.getByRole("button", { name: "Paid", exact: true })).toHaveAttribute("aria-pressed", "true");
