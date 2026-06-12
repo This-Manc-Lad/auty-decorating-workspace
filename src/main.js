@@ -357,7 +357,7 @@ function App() {
           className: classNames("auty-settings-cog absolute right-3 top-1/2 grid -translate-y-1/2 place-items-center rounded-full text-slate-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#01717F]", compactHeader ? "h-9 w-9" : "h-11 w-11")
         }, h(SettingsIcon, { size: compactHeader ? 17 : 19 }))
       ),
-      h("div", { className: "animate-[fadeIn_.45s_ease] flex-1" },
+      h("div", { key: activeTab, className: "auty-page-stage flex-1" },
         !isCloud && showPreviewBanner && h(PreviewBanner, { darkMode, onDismiss: dismissPreviewBanner }),
         activeTab === "Dashboard" && h(DashboardPage, pageProps),
         activeTab === "Calendar" && h(CalendarPage, pageProps),
@@ -916,6 +916,7 @@ function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTa
 function CalendarPage({ data, upsert, setNotice }) {
   const [monthView, setMonthView] = useState(new Date());
   const [expandedDate, setExpandedDate] = useState("");
+  const [showCalendarKey, setShowCalendarKey] = useState(false);
   const [entry, setEntry] = useState({
     title: "",
     type: "Personal Time",
@@ -1019,12 +1020,20 @@ function CalendarPage({ data, upsert, setNotice }) {
           )
         ); })
       ),
-      h("div", { className: "mt-5 flex flex-wrap gap-2", "aria-label": "Calendar colour key" },
-        CALENDAR_TYPES.map((type) => h("span", {
-          key: type,
-          className: "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] text-slate-700",
-          style: { borderColor: `${calendarBandColour(type)}66`, backgroundColor: calendarBandTint(type) }
-        }, h("span", { className: "h-2.5 w-2.5 rounded-full", style: { backgroundColor: calendarBandColour(type) } }), type))
+      h("div", { className: "mt-5" },
+        h("button", {
+          type: "button",
+          "aria-expanded": showCalendarKey,
+          onClick: () => setShowCalendarKey((current) => !current),
+          className: "auty-calendar-key-toggle flex w-full items-center justify-between rounded-[20px] border border-white/70 bg-white/32 px-4 py-3 text-sm text-slate-700"
+        }, h("span", null, "Calendar key"), h(ChevronDown, { size: 18, className: classNames("transition-transform duration-300", showCalendarKey ? "rotate-180" : "") })),
+        showCalendarKey && h("div", { className: "auty-expand-panel mt-3 flex flex-wrap gap-2", "aria-label": "Calendar colour key" },
+          CALENDAR_TYPES.map((type) => h("span", {
+            key: type,
+            className: "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] text-slate-700",
+            style: { borderColor: `${calendarBandColour(type)}66`, backgroundColor: calendarBandTint(type) }
+          }, h("span", { className: "h-2.5 w-2.5 rounded-full", style: { backgroundColor: calendarBandColour(type) } }), type))
+        )
       )
     ),
     h("aside", { className: "space-y-4" },
@@ -1347,7 +1356,7 @@ function DatabaseInvoices({ data, setSelectedClientId, setSelectedQuoteId, setAc
     const client = data.clients.find((entry) => entry.clientId === invoice.clientId);
     return h("article", { key: invoice.invoiceId, className: "rounded-[28px] border border-white/70 bg-white/34 p-5" },
       h("div", { className: "flex items-start justify-between gap-3" },
-        h("div", null, h("h3", { className: "text-lg text-slate-900" }, invoice.invoiceReference), h("p", { className: "mt-1 text-sm text-slate-500" }, `${displayName(client)} · ${client?.address || "Address not set"}`)),
+        h("div", null, h("h3", { className: "text-lg text-slate-900" }, `${invoice.invoiceReference} · ${displayName(client)}`), h("p", { className: "mt-1 text-sm text-slate-500" }, client?.address || "Address not set")),
         h("span", { className: "rounded-full bg-[#293E48] px-3 py-1 text-xs text-white" }, invoice.invoiceStatus === "Invoice Due" ? "Unpaid" : invoice.invoiceStatus)
       ),
       h("div", { className: "mt-4 grid grid-cols-2 gap-3" },
@@ -1370,7 +1379,7 @@ function DatabaseQuotes({ data, setSelectedClientId, setSelectedQuoteId, setActi
     const status = quote.quoteStatus === "Complete" ? "Converted to Job" : quote.quoteStatus;
     return h("article", { key: quote.quoteId, className: "rounded-[28px] border border-white/70 bg-white/34 p-5" },
       h("div", { className: "flex items-start justify-between gap-3" },
-        h("div", null, h("h3", { className: "text-lg text-slate-900" }, quote.quoteReference), h("p", { className: "mt-1 text-sm text-slate-500" }, `${displayName(client)} · ${client?.address || "Address not set"}`)),
+        h("div", null, h("h3", { className: "text-lg text-slate-900" }, `${quote.quoteReference} · ${displayName(client)}`), h("p", { className: "mt-1 text-sm text-slate-500" }, client?.address || "Address not set")),
         h("span", { className: "rounded-full bg-[#C88933] px-3 py-1 text-xs text-white" }, status)
       ),
       h("div", { className: "mt-4 grid grid-cols-2 gap-3" },
@@ -1395,10 +1404,12 @@ function CurrentJobPage(props) {
           className: "px-3 py-3 text-xs transition duration-300 sm:text-sm"
         }, tab))
     ),
-    jobTab === "Room Quoter" && h(RoomQuoterPage, props),
-    jobTab === "Job Overview" && h(JobOverviewPage, props),
-    jobTab === "Invoice Generator" && h(InvoiceGeneratorPage, props),
-    jobTab === "Photos & Attachments" && h(PhotosPage, props)
+    h("div", { key: jobTab, className: "auty-tab-stage" },
+      jobTab === "Room Quoter" && h(RoomQuoterPage, props),
+      jobTab === "Job Overview" && h(JobOverviewPage, props),
+      jobTab === "Invoice Generator" && h(InvoiceGeneratorPage, props),
+      jobTab === "Photos & Attachments" && h(PhotosPage, props)
+    )
   );
 }
 
@@ -1892,7 +1903,7 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
   };
 
   return h("div", { className: "grid gap-5 xl:grid-cols-[1.05fr_0.95fr]" },
-    h("section", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
+    h("section", { "data-invoice-generator-form": "true", className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
       h("p", { className: "text-[11px] font-bold uppercase tracking-[0.24em] text-auty-gold" }, "Invoice Generator"),
       h("h2", { className: "text-2xl font-black text-slate-900" }, "Final invoice layout"),
       h("div", { className: "mt-4 grid gap-4 lg:grid-cols-2" },
@@ -1906,13 +1917,12 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
       h("div", { className: "mt-4" },
         h("p", { className: "text-sm text-slate-600" }, "Quick status"),
         h(InvoiceStatusControls, { status: draftInvoice.invoiceStatus, onChange: (status) => applyInvoiceStatus(status) }),
-        h(PaymentChaseButtons, { invoice: draftInvoice, client, settings: data.settings }),
         h("div", { className: "mt-3" }, h(ReminderComposer, { upsert, setNotice, clientId: client?.clientId, quoteId: quote.quoteId, invoiceId: draftInvoice.invoiceId }))
       ),
       h("div", { className: "mt-5 grid gap-3 sm:grid-cols-2" },
         h(InfoTile, { label: "Client", value: client ? displayName(client) : "Unknown client" }),
         h(InfoTile, { label: "Job Address", value: client?.address || "Not set" }),
-        h(InfoTile, { label: "Original Quote", value: quote.quoteReference }),
+        h(InfoTile, { label: "Original Quote", value: `${quote.quoteReference} · ${displayName(client)}` }),
         h(InfoTile, { label: "Completed Work Summary", value: quote.wholeJobSpecifics || "No summary added yet" })
       )
     ),
@@ -1920,10 +1930,10 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
       h("div", { className: "auty-dark-glass rounded-[30px] border border-white/70 p-5 text-white" },
         h("h3", { className: "text-lg font-black" }, "Invoice Totals"),
         h("div", { className: "mt-4 space-y-3 text-sm" },
-          [["Final job total", calc.total], ["Deposit paid", draftInvoice.depositPaid], ["Remaining balance", draftInvoice.balanceDue], ["VAT breakdown", calc.vatAmount]].map(([label, value]) => h("div", { key: label, className: "flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3" }, h("span", null, label), h("strong", null, money(value))))
+          [["Final job total", calc.total], ["Deposit paid", draftInvoice.depositPaid], ["Remaining balance", draftInvoice.balanceDue], ["VAT breakdown", calc.vatAmount]].map(([label, value]) => h("div", { key: label, className: classNames("flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3", label === "Final job total" ? "auty-invoice-grand-total" : "") }, h("span", null, label), h("strong", null, money(value))))
         ),
         h("p", { className: "mt-4 text-sm text-white/72" }, `Payment due by ${shortDate(draftInvoice.paymentDueDate)}`),
-        h(ActionButton, { label: "Generate Final Invoice", onClick: saveAndGenerate, icon: FileText, className: "mt-5 w-full" })
+        h(ActionButton, { label: "Generate Final Invoice", onClick: saveAndGenerate, icon: FileText, variant: "gold", className: "mt-5 w-full" })
       ),
       h("div", { className: "rounded-[30px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.48))] p-5 shadow-[0_22px_55px_rgba(24,34,48,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl" },
         h("h3", { className: "text-lg font-black text-slate-900" }, "Past Invoices"),
@@ -1931,7 +1941,7 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
           relatedInvoices.map((invoice) => h("div", { key: invoice.invoiceId, "data-invoice-id": invoice.invoiceId, className: "rounded-[22px] bg-white/42 p-4 shadow-sm" },
             h("div", { className: "flex items-start justify-between gap-3" },
               h("div", null,
-                h("p", { className: "font-black text-slate-900" }, invoice.invoiceReference),
+                h("p", { className: "font-black text-slate-900" }, `${invoice.invoiceReference} · ${displayName(client)}`),
                 h("p", { className: "text-sm text-slate-500" }, `${shortDate(invoice.invoiceDate)} | ${invoice.invoiceStatus === "Invoice Due" ? "Unpaid" : invoice.invoiceStatus}`),
                 h("p", { className: "mt-1 text-sm text-slate-600" }, `${money(invoice.balanceDue ?? invoice.jobTotal)} outstanding`)
               ),
@@ -2118,7 +2128,7 @@ function InvoiceStatusControls({ status, onChange }) {
   const colours = {
     Unpaid: "#293E48",
     Paid: "#01717F",
-    Overdue: "#C88933"
+    Overdue: "#C95252"
   };
   return h("div", { className: "mt-3 grid grid-cols-3 gap-2", role: "group", "aria-label": "Invoice payment status" },
     ["Unpaid", "Paid", "Overdue"].map((option) => h("button", {
@@ -2171,7 +2181,7 @@ function PaymentChaseButtons({ invoice, client, settings }) {
   return h("div", { className: "mt-4 grid gap-2 sm:grid-cols-3" },
     h("button", { type: "button", "data-email-subject": first.subject, "data-email-body": first.body, onClick: () => openDraft("first"), className: "rounded-full bg-[#01717F] px-3 py-2 text-xs text-white" }, "Chase Payment"),
     h("button", { type: "button", "data-email-subject": second.subject, "data-email-body": second.body, onClick: () => openDraft("second"), className: "rounded-full bg-[#293E48] px-3 py-2 text-xs text-white" }, "Second Payment Chase"),
-    h("button", { type: "button", "data-email-subject": final.subject, "data-email-body": final.body, onClick: () => openDraft("final"), className: "rounded-full bg-[#C88933] px-3 py-2 text-xs text-white" }, "Final Notice")
+    h("button", { type: "button", "data-email-subject": final.subject, "data-email-body": final.body, onClick: () => openDraft("final"), className: "rounded-full bg-[#C95252] px-3 py-2 text-xs text-white hover:bg-[#b74444]" }, "Final Notice")
   );
 }
 
