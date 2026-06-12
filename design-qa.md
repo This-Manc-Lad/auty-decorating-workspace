@@ -29,6 +29,26 @@
 
 final result: passed
 
+## Final Restrained Polish Pass
+
+- Requirements: add subtle texture, colour, motion, and depth without changing app workflows or restoring the paint-wipe animation
+- Implementation URL: `http://127.0.0.1:5173/?preview`
+- Primary viewport: 430 x 932, light theme, preview mode
+
+**Design Treatment**
+- Added a fine brushed-surface texture and slow ambient teal, gold, and white light behind the interface.
+- Added a short panel entrance transition, restrained desktop hover elevation, and tactile press feedback.
+- Strengthened glass highlights on the floating header while preserving flat colours on all interactive controls.
+- Retained the simple Welcome Back fade and all established AUTY spacing, radius, typography, and palette rules.
+
+**Fitness Checks**
+- Production build passed.
+- All seven mobile journey tests passed.
+- Primary tabs remain within the mobile viewport with no horizontal overflow.
+- Reduced-motion users receive effectively static transitions.
+
+final result: passed
+
 ## Annotation And Full-App Polish Pass
 
 - Source visual truth: user-provided browser annotations for Dashboard, Calendar, Clients, Room Quoter, Other Features, room pricing, and Job Overview totals
