@@ -403,6 +403,30 @@ button.is-active :where(*) {
   border-radius: 0 999px 999px 0;
 }
 
+.auty-calendar-cell[data-expanded="true"][data-band] {
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  max-width: 100%;
+  min-height: 0;
+  border: 2px solid var(--calendar-band);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--calendar-tint) 72%, rgba(255, 255, 255, 0.62));
+  box-shadow: 0 18px 42px rgba(17, 41, 54, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.auty-calendar-cell[data-expanded="true"] > button {
+  justify-self: start;
+}
+
+.auty-calendar-key-toggle:hover {
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.auty-expand-panel {
+  transform-origin: top;
+  animation: autyExpandPanel 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .auty-feature-control {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76), 0 10px 26px rgba(17, 41, 54, 0.06);
 }
@@ -423,6 +447,19 @@ button.is-active :where(*) {
   color: #fff5dc;
   background: rgba(200, 137, 51, 0.48);
   border-color: rgba(237, 197, 109, 0.58);
+}
+
+.auty-invoice-grand-total {
+  min-height: 4.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.16) !important;
+  font-size: 1.15rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 12px 28px rgba(8, 42, 52, 0.16);
+}
+
+.auty-invoice-grand-total strong {
+  font-size: 1.5rem;
+  font-weight: 800 !important;
 }
 
 .auty-welcome {
@@ -463,6 +500,29 @@ button.is-active :where(*) {
 @keyframes autyAmbientFloat {
   0% { transform: translate3d(-1%, -0.7%, 0) scale(1); }
   100% { transform: translate3d(1.2%, 1%, 0) scale(1.035); }
+}
+
+@keyframes autyExpandPanel {
+  0% { opacity: 0; transform: translateY(-7px) scaleY(0.94); }
+  100% { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+
+@keyframes autyTabIn {
+  0% { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.992); filter: blur(2px); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+}
+
+.auty-page-stage,
+.auty-tab-stage {
+  animation: autyTabIn 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auty-app-shell button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.auty-app-shell button::after {
+  pointer-events: none;
 }
 
 @media (min-width: 640px) {
