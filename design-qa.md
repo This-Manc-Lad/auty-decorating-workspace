@@ -29,6 +29,18 @@
 
 final result: passed
 
+## Final Annotation And Interaction Pass
+
+- Fixed expanded multi-day calendar details so they use a contained full-width card instead of inheriting connected-band corner shapes.
+- Moved the calendar colour legend into an expandable `Calendar key`.
+- Changed selected Overdue controls and Final Notice actions to red.
+- Increased the visual prominence of Final job total and changed Generate Final Invoice to a contrasting gold action.
+- Added client names beside visible quote and invoice references.
+- Removed payment-chase actions from the unsaved invoice generator while retaining them on saved invoice records and the client invoice database.
+- Added smooth main-tab, Quoter-tab, expandable-panel, press, and hover transitions with reduced-motion support.
+
+final result: passed
+
 ## Final Restrained Polish Pass
 
 - Requirements: add subtle texture, colour, motion, and depth without changing app workflows or restoring the paint-wipe animation
