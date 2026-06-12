@@ -114,7 +114,6 @@ const ROOM_ICONS = {
 const DEFAULT_LOGO_LIGHT = "./branding/auty-logo.png";
 const DEFAULT_LOGO_DARK = "./branding/auty-logo.png";
 const DEFAULT_HEADER_LOGO = "./branding/auty-logo-horizontal.png";
-const WELCOME_BRUSH_STROKES = 12;
 
 function resolveBrandLogo(settings, darkMode) {
   return settings?.logoUrl || (darkMode ? DEFAULT_LOGO_DARK : DEFAULT_LOGO_LIGHT);
@@ -164,7 +163,7 @@ function App() {
   }, [notice]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowWelcome(false), 3500);
+    const timer = setTimeout(() => setShowWelcome(false), 2400);
     return () => clearTimeout(timer);
   }, []);
 
@@ -335,7 +334,7 @@ function App() {
       ? "bg-[radial-gradient(circle_at_top_left,_rgba(0,184,198,0.18),_transparent_24%),radial-gradient(circle_at_80%_14%,_rgba(212,175,55,0.16),_transparent_24%),radial-gradient(circle_at_24%_78%,_rgba(192,198,204,0.1),_transparent_26%),linear-gradient(180deg,_#060a14_0%,_#0a0f1f_46%,_#151920_100%)] text-slate-100"
       : "bg-[radial-gradient(circle_at_top_left,_rgba(212,175,55,0.18),_transparent_24%),radial-gradient(circle_at_82%_16%,_rgba(0,184,198,0.14),_transparent_23%),radial-gradient(circle_at_18%_82%,_rgba(192,198,204,0.18),_transparent_24%),linear-gradient(180deg,_#fcfaf6_0%,_#f5f9fb_55%,_#f8f1e6_100%)] text-auty-ink"
   ) },
-    h("div", { className: "relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col px-4 pb-8 pt-4 sm:px-6" },
+    h("div", { className: "mx-auto flex min-h-screen max-w-7xl flex-col px-4 pb-8 pt-4 sm:px-6" },
       h("header", {
         "data-auty-top-dock": "true",
         "data-compact": compactHeader ? "true" : "false",
@@ -734,24 +733,12 @@ function LoadingScreen({ darkMode }) {
 
 function WelcomeOverlay({ brandLogo }) {
   return h("div", {
-    className: "auty-welcome pointer-events-none fixed inset-0 z-[100] grid place-items-center overflow-hidden px-6",
-    "data-welcome-effect": "paintbrush-wipe"
+    className: "auty-welcome pointer-events-none fixed inset-0 z-[100] grid place-items-center overflow-hidden px-6"
   },
-    h("div", { className: "auty-welcome-strokes absolute inset-0", "aria-hidden": "true" },
-      Array.from({ length: WELCOME_BRUSH_STROKES }, (_, index) => h("span", {
-        key: index,
-        className: "auty-welcome-stroke",
-        style: {
-          "--stroke-index": index,
-          "--stroke-delay": `${1760 + index * 46}ms`
-        }
-      }))
-    ),
-    h("div", { className: "auty-welcome-content relative z-10 text-center" },
+    h("div", { className: "relative z-10 text-center" },
       h("img", { src: brandLogo, alt: "AUTY Decorating", className: "auty-welcome-logo mx-auto max-h-[82vh] w-[min(94vw,680px)] object-contain" }),
       h("p", { className: "auty-welcome-copy -mt-6 text-xl tracking-[0.18em] text-slate-700 sm:text-2xl" }, "Welcome Back")
-    ),
-    h("span", { className: "auty-welcome-brush-glint absolute inset-y-0 z-20 w-24", "aria-hidden": "true" })
+    )
   );
 }
 

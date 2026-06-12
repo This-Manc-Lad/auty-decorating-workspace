@@ -5,8 +5,6 @@ test("the refreshed workspace navigation and key controls work", async ({ page }
   await page.goto("/?preview");
 
   await expect(page.getByText("Welcome Back")).toBeVisible();
-  await expect(page.locator('[data-welcome-effect="paintbrush-wipe"]')).toBeVisible();
-  await expect(page.locator(".auty-welcome-stroke")).toHaveCount(12);
   await expect(page.getByText("Welcome Back")).toBeHidden({ timeout: 5000 });
   await expect(page.getByRole("img", { name: "AUTY Decorating logo" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toHaveCount(0);

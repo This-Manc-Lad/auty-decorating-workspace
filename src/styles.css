@@ -97,40 +97,10 @@ button.is-active :where(*) {
 }
 
 .auty-app-shell {
-  position: relative;
-  isolation: isolate;
-  overflow-x: clip;
   background:
     radial-gradient(circle at 14% 2%, rgba(255, 255, 255, 0.66), transparent 24rem),
     radial-gradient(circle at 86% 10%, rgba(7, 139, 152, 0.16), transparent 24rem),
     linear-gradient(155deg, rgba(234, 243, 244, 0.82), rgba(175, 196, 201, 0.8));
-}
-
-.auty-app-shell::before,
-.auty-app-shell::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.auty-app-shell::before {
-  opacity: 0.2;
-  background-image:
-    repeating-linear-gradient(108deg, rgba(255, 255, 255, 0.34) 0 1px, transparent 1px 8px),
-    repeating-linear-gradient(18deg, rgba(17, 63, 76, 0.08) 0 1px, transparent 1px 11px);
-  mix-blend-mode: soft-light;
-}
-
-.auty-app-shell::after {
-  inset: -16%;
-  opacity: 0.38;
-  background:
-    radial-gradient(circle at 18% 20%, rgba(200, 137, 51, 0.16), transparent 19rem),
-    radial-gradient(circle at 82% 35%, rgba(0, 136, 152, 0.18), transparent 23rem),
-    radial-gradient(circle at 46% 84%, rgba(255, 255, 255, 0.34), transparent 22rem);
-  animation: ambientDrift 18s ease-in-out infinite alternate;
 }
 
 .auty-app-shell section,
@@ -207,18 +177,6 @@ button.is-active :where(*) {
   -webkit-backdrop-filter: blur(30px) saturate(1.3) !important;
 }
 
-.auty-top-dock::before,
-.auty-bottom-dock::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 -38%;
-  width: 34%;
-  pointer-events: none;
-  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-  transform: skewX(-18deg);
-  animation: glassGlint 9s ease-in-out infinite;
-}
-
 .auty-top-logo {
   filter: drop-shadow(0 10px 18px rgba(7, 84, 93, 0.16));
 }
@@ -252,19 +210,6 @@ button.is-active :where(*) {
   color: #fff !important;
   background: #01717f !important;
   box-shadow: 0 12px 28px rgba(7, 139, 152, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.54) !important;
-}
-
-.auty-bottom-dock button,
-.auty-job-tabs button,
-.auty-settings-cog {
-  will-change: transform;
-}
-
-.auty-bottom-dock button:active,
-.auty-job-tabs button:active,
-.auty-settings-cog:active,
-.auty-app-shell button:active {
-  transform: translateY(1px) scale(0.98);
 }
 
 .auty-glass-slider {
@@ -420,41 +365,9 @@ button.is-active :where(*) {
 }
 
 .auty-welcome {
-  background: transparent;
-  animation: welcomeRelease 3.45s linear forwards;
-}
-
-.auty-welcome-strokes {
-  overflow: hidden;
-}
-
-.auty-welcome-stroke {
-  position: absolute;
-  left: -4%;
-  top: calc(var(--stroke-index) * 8.333% - 1px);
-  width: 108%;
-  height: calc(8.333% + 3px);
   background:
-    linear-gradient(90deg, rgba(239, 247, 247, 0.99), rgba(201, 224, 227, 0.99) 58%, rgba(161, 193, 199, 0.99)),
-    #d2e4e6;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 1.2% 82%, 0.35% 64%, 1.5% 47%, 0.2% 29%, 1% 12%);
-  animation: brushStrokeClear 1.08s cubic-bezier(0.65, 0, 0.35, 1) var(--stroke-delay) forwards;
-  will-change: transform, filter;
-}
-
-.auty-welcome-stroke:nth-child(3n + 2) {
-  width: 112%;
-  animation-duration: 0.94s;
-}
-
-.auty-welcome-stroke:nth-child(4n) {
-  width: 105%;
-  animation-delay: calc(var(--stroke-delay) + 90ms);
-}
-
-.auty-welcome-content {
-  animation: welcomeContent 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    radial-gradient(circle at 50% 36%, rgba(255, 255, 255, 0.96), rgba(218, 234, 236, 0.94) 46%, rgba(162, 202, 206, 0.96));
+  animation: welcomeFade 2.35s ease forwards;
 }
 
 .auty-welcome-logo {
@@ -463,15 +376,6 @@ button.is-active :where(*) {
 
 .auty-welcome-copy {
   animation: welcomeCopy 2.05s ease forwards;
-}
-
-.auty-welcome-brush-glint {
-  left: -7rem;
-  opacity: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.48), rgba(0, 136, 152, 0.1), transparent);
-  filter: blur(8px);
-  transform: skewX(-10deg);
-  animation: brushGlint 1.18s cubic-bezier(0.65, 0, 0.35, 1) 1.82s forwards;
 }
 
 @keyframes welcomeLogo {
@@ -485,53 +389,14 @@ button.is-active :where(*) {
   52%, 100% { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes welcomeContent {
-  0%, 72% { opacity: 1; filter: blur(0); }
-  100% { opacity: 0; filter: blur(5px); transform: translateX(20px) scale(0.97); }
-}
-
-@keyframes brushStrokeClear {
-  0% { transform: translateX(0); filter: blur(0); }
-  72% { filter: blur(0); }
-  100% { transform: translateX(108%); filter: blur(1.5px); }
-}
-
-@keyframes brushGlint {
-  0% { left: -7rem; opacity: 0; }
-  16% { opacity: 0.72; }
-  82% { opacity: 0.28; }
-  100% { left: calc(100% + 7rem); opacity: 0; }
-}
-
-@keyframes welcomeRelease {
-  0%, 96% { visibility: visible; }
-  100% { visibility: hidden; }
-}
-
-@keyframes ambientDrift {
-  0% { transform: translate3d(-1.5%, -1%, 0) scale(1); }
-  100% { transform: translate3d(1.5%, 1.25%, 0) scale(1.045); }
-}
-
-@keyframes glassGlint {
-  0%, 70% { transform: translateX(0) skewX(-18deg); opacity: 0; }
-  78% { opacity: 0.55; }
-  92%, 100% { transform: translateX(430%) skewX(-18deg); opacity: 0; }
+@keyframes welcomeFade {
+  0%, 72% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
 }
 
 @media (min-width: 640px) {
   .auty-job-tabs {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .auty-app-shell section:hover,
-  .auty-app-shell article:hover,
-  .auty-app-shell aside > div:hover {
-    border-color: rgba(255, 255, 255, 0.88) !important;
-    box-shadow: 0 28px 72px rgba(17, 41, 54, 0.16), 0 5px 16px rgba(17, 41, 54, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.94) !important;
-    transform: translateY(-2px);
   }
 }
 

@@ -29,28 +29,6 @@
 
 final result: passed
 
-## Paint-Wipe Release Pass
-
-- Requirements: user-requested paintbrush opening transition and final visual polish
-- Implementation URL: `http://127.0.0.1:5173/?preview`
-- Viewport checked: 430 x 932, light theme, preview mode
-- Screens checked: Dashboard, Calendar, Clients, and Quoter
-
-**Visual And Interaction Findings**
-- The welcome screen clears in twelve staggered, irregular horizontal strokes, creating a painted-away edge rather than a standard fade.
-- A restrained moving highlight reinforces the brush direction without delaying access to the app.
-- Ambient teal light, fine surface texture, glass highlights, control depth, and press feedback add visual richness while preserving the AUTY palette and flat action colours.
-- Every primary screen remains exactly `430px` wide at the mobile viewport with no horizontal overflow.
-- No sharp main `section` or `aside` panels remain on the four primary screens.
-- The welcome overlay is removed after the transition and does not block navigation.
-
-**Verification**
-- Production build passed.
-- All seven automated mobile journey tests passed.
-- In-app browser navigation and responsive checks passed across all four primary tabs.
-
-final result: passed
-
 ## Annotation And Full-App Polish Pass
 
 - Source visual truth: user-provided browser annotations for Dashboard, Calendar, Clients, Room Quoter, Other Features, room pricing, and Job Overview totals
