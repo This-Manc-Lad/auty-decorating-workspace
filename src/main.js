@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import autyLogo from "../branding/auty-logo.png";
+import autyHeaderLogo from "../branding/auty-logo-horizontal.png";
 import {
   Bath,
   BedDouble,
@@ -111,9 +113,9 @@ const ROOM_ICONS = {
   Other: Briefcase
 };
 
-const DEFAULT_LOGO_LIGHT = "./branding/auty-logo.png";
-const DEFAULT_LOGO_DARK = "./branding/auty-logo.png";
-const DEFAULT_HEADER_LOGO = "./branding/auty-logo-horizontal.png";
+const DEFAULT_LOGO_LIGHT = autyLogo;
+const DEFAULT_LOGO_DARK = autyLogo;
+const DEFAULT_HEADER_LOGO = autyHeaderLogo;
 
 function resolveBrandLogo(settings, darkMode) {
   return settings?.logoUrl || (darkMode ? DEFAULT_LOGO_DARK : DEFAULT_LOGO_LIGHT);
