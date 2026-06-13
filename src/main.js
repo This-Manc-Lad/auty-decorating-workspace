@@ -131,8 +131,8 @@ function App() {
   const [jobTab, setJobTab] = useState(JOB_TABS[0]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedQuoteId, setSelectedQuoteId] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [settingsReturnTab, setSettingsReturnTab] = useState(MAIN_TABS[0]);
+  const [showWelcome, setShowWelcome] = useState(() => !isSupabaseConfigured());
   const [compactHeader, setCompactHeader] = useState(false);
   const [showPreviewBanner, setShowPreviewBanner] = useState(() => {
     try {
@@ -165,9 +165,23 @@ function App() {
   }, [notice]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowWelcome(false), 3000);
+    if (!authReady || mode === "auth") {
+      setShowWelcome(false);
+      return undefined;
+    }
+    setShowWelcome(true);
+    const timer = setTimeout(() => setShowWelcome(false), 4200);
     return () => clearTimeout(timer);
-  }, []);
+  }, [authReady, mode]);
+
+  useEffect(() => {
+    if (!showWelcome) return undefined;
+    const previousOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = previousOverflow;
+    };
+  }, [showWelcome]);
 
   useEffect(() => {
     const onScroll = () => setCompactHeader(window.scrollY > 48);
@@ -183,6 +197,17 @@ function App() {
     } catch {
       // Preview mode still works when browser storage is unavailable.
     }
+  };
+
+  const openSettings = () => {
+    if (activeTab !== "Settings") setSettingsReturnTab(activeTab);
+    setActiveTab("Settings");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const leaveSettings = () => {
+    setActiveTab(settingsReturnTab);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const selectedClient = data.clients.find((client) => client.clientId === selectedClientId) || data.clients[0] || null;
@@ -351,36 +376,38 @@ function App() {
         ),
         h("button", {
           type: "button",
-          onClick: () => setShowSettings(true),
-          "aria-label": "Open workspace settings",
-          title: "Open workspace settings",
+          onClick: openSettings,
+          "aria-label": "Open Settings tab",
+          "aria-current": activeTab === "Settings" ? "page" : undefined,
+          title: "Open Settings tab",
           className: classNames("auty-settings-cog absolute right-3 top-1/2 grid -translate-y-1/2 place-items-center rounded-full text-slate-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#01717F]", compactHeader ? "h-9 w-9" : "h-11 w-11")
         }, h(SettingsIcon, { size: compactHeader ? 17 : 19 }))
       ),
       h("div", { key: activeTab, className: "auty-page-stage flex-1" },
-        !isCloud && showPreviewBanner && h(PreviewBanner, { darkMode, onDismiss: dismissPreviewBanner }),
+        activeTab !== "Settings" && !isCloud && showPreviewBanner && h(PreviewBanner, { darkMode, onDismiss: dismissPreviewBanner }),
         activeTab === "Dashboard" && h(DashboardPage, pageProps),
         activeTab === "Calendar" && h(CalendarPage, pageProps),
         activeTab === "Client Database" && h(ClientDatabasePage, pageProps),
-        activeTab === "Quoter" && h(CurrentJobPage, { ...pageProps, jobTab, setJobTab })
+        activeTab === "Quoter" && h(CurrentJobPage, { ...pageProps, jobTab, setJobTab }),
+        activeTab === "Settings" && h(SettingsPage, {
+          data,
+          update: actions.update,
+          onBack: leaveSettings,
+          backLabel: settingsReturnTab === "Client Database" ? "Clients" : settingsReturnTab,
+          setNotice,
+          installToHomeScreen,
+          darkMode,
+          exportBackup: actions.exportBackup,
+          importBackupFile: actions.importBackupFile,
+          uploadLogoFile: actions.uploadLogoFile,
+          signOutUser: actions.signOut,
+          session,
+          isCloud
+        })
       )
     ),
     h(FloatingNav, { activeTab, setActiveTab, darkMode }),
-    showSettings && h(SettingsPanel, {
-      data,
-      update: actions.update,
-      setShowSettings,
-      setNotice,
-      installToHomeScreen,
-      darkMode,
-      exportBackup: actions.exportBackup,
-      importBackupFile: actions.importBackupFile,
-      uploadLogoFile: actions.uploadLogoFile,
-      signOutUser: actions.signOut,
-      session,
-      isCloud
-    }),
-    showWelcome && h(WelcomeOverlay, { brandLogo }),
+    showWelcome && h(WelcomeOverlay, { brandLogo, onComplete: () => setShowWelcome(false) }),
     notice && h("div", { className: classNames("fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-full px-5 py-3 text-sm font-bold text-white shadow-xl animate-[slideIn_.3s_ease]", darkMode ? "bg-slate-800/95" : "bg-slate-900") }, notice)
   );
 }
@@ -733,9 +760,14 @@ function LoadingScreen({ darkMode }) {
   );
 }
 
-function WelcomeOverlay({ brandLogo }) {
+function WelcomeOverlay({ brandLogo, onComplete }) {
   return h("div", {
-    className: "auty-welcome pointer-events-none fixed inset-0 z-[100] grid place-items-center overflow-hidden px-6"
+    className: "auty-welcome fixed inset-0 z-[100] grid place-items-center overflow-hidden px-6",
+    role: "status",
+    "aria-label": "Welcome Back to AUTY Decorating",
+    onAnimationEnd: (event) => {
+      if (event.target === event.currentTarget && ["welcomePaintAway", "welcomeReduced"].includes(event.animationName)) onComplete?.();
+    }
   },
     h("div", { className: "auty-welcome-orb relative z-10 grid place-items-center text-center" },
       h("div", { className: "auty-welcome-shine" }),
@@ -744,7 +776,8 @@ function WelcomeOverlay({ brandLogo }) {
         h("p", { className: "text-[10px] uppercase tracking-[0.42em] text-[#C88933] sm:text-xs" }, "Your decorating workspace"),
         h("p", { className: "mt-3 text-2xl tracking-[0.08em] text-[#293E48] sm:text-3xl" }, "Welcome Back")
       )
-    )
+    ),
+    h("div", { className: "auty-welcome-brush", "aria-hidden": "true" })
   );
 }
 
@@ -2105,13 +2138,12 @@ function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice, wo
   );
 }
 
-function SettingsPanel({ data, update, setShowSettings, setNotice, installToHomeScreen, darkMode, exportBackup, importBackupFile, uploadLogoFile, signOutUser, session, isCloud }) {
+function SettingsPage({ data, update, onBack, backLabel, setNotice, installToHomeScreen, darkMode, exportBackup, importBackupFile, uploadLogoFile, signOutUser, session, isCloud }) {
   const settings = data.settings;
   const patch = (field, value) => update("settings", { ...settings, [field]: value });
 
-  return h("div", { className: "fixed inset-0 z-50 overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(255,210,145,0.18),transparent_26%),rgba(15,23,42,0.36)] p-4 backdrop-blur-md" },
-    h("div", { className: classNames(
-      "mx-auto mt-2 max-h-[calc(100vh-2rem)] w-[min(94vw,860px)] overflow-y-auto rounded-[34px] p-5 shadow-[0_30px_80px_rgba(24,34,48,0.22),0_0_60px_rgba(240,181,82,0.14),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-2xl",
+  return h("section", { className: classNames(
+      "auty-settings-page mx-auto w-full max-w-4xl rounded-[34px] p-5 shadow-[0_30px_80px_rgba(24,34,48,0.16),0_0_60px_rgba(240,181,82,0.1),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-2xl",
       darkMode ? "border border-white/10 bg-[linear-gradient(135deg,rgba(15,23,42,0.88),rgba(30,41,59,0.7))]" : "border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.56))]"
     ) },
       h("div", { className: "flex items-center justify-between gap-3" },
@@ -2120,7 +2152,7 @@ function SettingsPanel({ data, update, setShowSettings, setNotice, installToHome
           h("h2", { className: classNames("text-2xl font-black", darkMode ? "text-white" : "text-slate-900") }, "Workspace settings and backups"),
           h("p", { className: classNames("mt-1 text-sm", darkMode ? "text-white/65" : "text-slate-500") }, isCloud ? `Cloud account: ${session?.user?.email || "Signed in"}` : "Preview mode is active until Supabase is configured.")
         ),
-        h(IconButton, { label: "Close settings", icon: X, onClick: () => setShowSettings(false) })
+        h(ActionButton, { label: `Back to ${backLabel}`, icon: ChevronLeft, onClick: onBack, variant: "soft" })
       ),
       h("div", { className: "mt-5 grid gap-4 lg:grid-cols-2" },
         h(Field, { label: "Business Name", value: settings.businessName, onChange: (value) => patch("businessName", value) }),
@@ -2166,7 +2198,6 @@ function SettingsPanel({ data, update, setShowSettings, setNotice, installToHome
         ),
         isCloud && h(ActionButton, { label: "Sign Out", onClick: signOutUser, icon: LogOut, variant: "danger" })
       )
-    )
   );
 }
 

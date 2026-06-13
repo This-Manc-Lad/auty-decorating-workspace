@@ -247,6 +247,12 @@ button.is-active :where(*) {
   background: #01717f;
 }
 
+.auty-settings-cog[aria-current="page"] {
+  color: #fff;
+  background: #01717f;
+  box-shadow: 0 12px 28px rgba(1, 113, 127, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
 .auty-settings-cog:focus-visible {
   outline: 3px solid rgba(200, 137, 51, 0.34);
   outline-offset: 3px;
@@ -589,9 +595,11 @@ button.is-active :where(*) {
   position: fixed !important;
   inset: 0 !important;
   z-index: 100 !important;
+  pointer-events: auto;
+  will-change: clip-path, opacity;
   background:
     radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.98), rgba(224, 239, 240, 0.96) 42%, rgba(145, 190, 195, 0.98));
-  animation: welcomeFade 2.95s var(--auty-smooth) forwards;
+  animation: welcomePaintAway 3.65s var(--auty-smooth) forwards;
 }
 
 .auty-welcome::before,
@@ -638,6 +646,21 @@ button.is-active :where(*) {
   animation: welcomeShine 1.8s 0.3s var(--auty-smooth) both;
 }
 
+.auty-welcome-brush {
+  position: absolute;
+  left: -12%;
+  bottom: -24%;
+  z-index: 20;
+  width: 124%;
+  height: 18%;
+  border-radius: 44% 56% 38% 62%;
+  opacity: 0;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.78) 42%, rgba(1, 113, 127, 0.2) 62%, transparent);
+  filter: blur(9px);
+  transform: rotate(-3deg);
+  animation: welcomeBrushSweep 3.65s var(--auty-smooth) forwards;
+}
+
 .auty-welcome-logo {
   filter: drop-shadow(0 22px 34px rgba(1, 113, 127, 0.18));
   animation: welcomeLogo 2.2s var(--auty-spring) forwards;
@@ -658,9 +681,32 @@ button.is-active :where(*) {
   52%, 100% { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes welcomeFade {
-  0%, 78% { opacity: 1; visibility: visible; }
+@keyframes welcomePaintAway {
+  0%, 70% {
+    opacity: 1;
+    visibility: visible;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+  84% {
+    opacity: 1;
+    clip-path: polygon(0 0, 100% 0, 100% 72%, 0 88%);
+  }
+  100% {
+    opacity: 1;
+    visibility: hidden;
+    clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
+  }
+}
+
+@keyframes welcomeReduced {
+  0%, 72% { opacity: 1; visibility: visible; }
   100% { opacity: 0; visibility: hidden; }
+}
+
+@keyframes welcomeBrushSweep {
+  0%, 68% { bottom: -24%; opacity: 0; }
+  75% { opacity: 0.76; }
+  100% { bottom: 104%; opacity: 0.18; }
 }
 
 @keyframes welcomeOrb {
@@ -762,5 +808,21 @@ button.is-active :where(*) {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .auty-welcome {
+    animation: welcomeReduced 1.35s ease-out forwards !important;
+  }
+
+  .auty-welcome-orb,
+  .auty-welcome-logo,
+  .auty-welcome-copy,
+  .auty-welcome-shine,
+  .auty-welcome-brush,
+  .auty-welcome::before,
+  .auty-welcome::after {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
   }
 }

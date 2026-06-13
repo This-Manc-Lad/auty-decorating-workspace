@@ -13,16 +13,22 @@ test("the refreshed workspace navigation and key controls work", async ({ page }
   await page.goto("/?preview");
 
   await expect(page.getByText("Welcome Back")).toBeVisible();
+  await expect(page.locator(".auty-welcome")).toHaveCSS("position", "fixed");
+  await expect(page.locator(".auty-welcome")).toHaveCSS("animation-name", "welcomePaintAway");
   await expect(page.getByText("Welcome Back")).toBeHidden({ timeout: 5000 });
   await expect(page.getByRole("img", { name: "AUTY Decorating logo" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toHaveCount(0);
-  await expect(page.getByLabel("Open workspace settings")).toBeVisible();
+  await expect(page.getByLabel("Open Settings tab")).toBeVisible();
   await expect(page.locator(".auty-bottom-dock")).toHaveCSS("position", "fixed");
   const dockBeforeScroll = await page.locator(".auty-bottom-dock").boundingBox();
-  await page.getByLabel("Open workspace settings").click();
+  await page.getByLabel("Open Settings tab").click();
+  await expect(page.getByLabel("Open Settings tab")).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(".auty-settings-page")).toBeVisible();
+  await expect(page.locator(".auty-settings-page")).toHaveCSS("position", "relative");
   await expect(page.getByLabel("Default Deposit")).toHaveValue("50%");
   await expect(page.getByLabel("Decorator Name")).toBeVisible();
-  await page.getByLabel("Close settings").click();
+  await page.getByRole("button", { name: "Back to Dashboard" }).click();
+  await expect(page.getByText("Today’s Job")).toBeVisible();
   const buttonGradients = await page.locator("button").evaluateAll((buttons) => buttons.map((button) => getComputedStyle(button).backgroundImage));
   expect(buttonGradients.every((value) => value === "none")).toBeTruthy();
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -32,6 +38,10 @@ test("the refreshed workspace navigation and key controls work", async ({ page }
   await page.evaluate(() => window.scrollTo(0, 0));
 
   await page.getByLabel("Calendar", { exact: true }).click();
+  await expect(page.getByText("Business Calendar")).toBeVisible();
+  await page.getByLabel("Open Settings tab").click();
+  await expect(page.getByRole("button", { name: "Back to Calendar" })).toBeVisible();
+  await page.getByRole("button", { name: "Back to Calendar" }).click();
   await expect(page.getByText("Business Calendar")).toBeVisible();
   await expect(page.locator('[aria-label="Calendar colour key"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Calendar Key" }).click();

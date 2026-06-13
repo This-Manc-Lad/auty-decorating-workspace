@@ -29,6 +29,17 @@
 
 final result: passed
 
+## Welcome And Settings Navigation Correction
+
+- Fixed the live-workspace timing issue that allowed the Welcome animation to finish while Supabase authentication or workspace loading was still in progress.
+- The branded entry now starts when the workspace becomes usable, holds the viewport in place, and exits with a painted-away wipe.
+- Added a short static fade fallback for devices with Reduce Motion enabled so the Welcome screen remains visible rather than disappearing immediately.
+- Replaced the full-screen Settings overlay with a normal Settings tab opened by the header cog.
+- Settings keeps the bottom navigation available and returns to the originating Dashboard, Calendar, Clients, or Quoter tab.
+- Verified at 430 x 932 with no horizontal overflow, a fixed bottom dock, clean back navigation, and no console warnings or errors.
+
+final result: passed
+
 ## Final Liquid Glass And Document QA
 
 - Reference deployment: `https://this-manc-lad.github.io/auty-decorating-workspace/`
