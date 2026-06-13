@@ -1,6 +1,7 @@
+import autyHeaderLogo from "../../branding/auty-logo-horizontal.png";
 import { calculateQuote, displayName, money, shortDate, today } from "./utils.js";
 
-const DEFAULT_PDF_LOGO = "./branding/auty-logo.png";
+const DEFAULT_PDF_LOGO = autyHeaderLogo;
 
 async function toDataUrl(url) {
   if (!url) return "";
@@ -14,45 +15,25 @@ async function toDataUrl(url) {
   });
 }
 
-function sentenceList(items) {
-  const clean = items.filter(Boolean);
-  if (!clean.length) return "general decorating works";
-  if (clean.length === 1) return clean[0];
-  return `${clean.slice(0, -1).join(", ")} and ${clean.at(-1)}`;
+function compactText(doc, text, width, maxLines = 2) {
+  const lines = doc.splitTextToSize(String(text || ""), width);
+  if (lines.length <= maxLines) return lines;
+  const clipped = lines.slice(0, maxLines);
+  clipped[maxLines - 1] = `${clipped[maxLines - 1].replace(/[.\s]+$/, "")}...`;
+  return clipped;
 }
 
-function roomDescription(room) {
-  const items = [];
-  if (room.ceiling === "Yes") items.push("ceiling preparation and coating");
-  if (room.jobType === "Painting" || room.jobType === "Combination") items.push("wall painting");
-  if (room.jobType === "Wallpapering" || room.jobType === "Combination") items.push("wallpapering");
-  if (room.skirtingBoards !== "No") items.push("skirting boards");
-  if (room.architrave !== "No") items.push("architrave");
-  if (room.doors !== "No") items.push("doors");
-
-  const features = room.otherFeatures || {};
-  const labels = {
-    dadoRails: "dado rails",
-    pictureRails: "picture rails",
-    radiators: "radiators",
-    windowSill: "window sill",
-    banister: "banister",
-    spindles: "spindles",
-    stairsFeature: "stairs",
-    floor: "floor",
-    other: "additional features"
-  };
-  Object.entries(labels).forEach(([key, label]) => {
-    if (features[key] && features[key] !== "No") items.push(label);
-  });
-
-  return `Includes ${sentenceList(items)}.`;
-}
-
-function shouldPrintWholeJobSpecifics(text = "") {
-  const trimmed = text.trim();
-  if (!trimmed) return false;
-  return !/:\s*(Painting|Wallpapering|Combination|Other) including/i.test(trimmed);
+function addImage(doc, dataUrl, x, y, width, height) {
+  if (!dataUrl) return;
+  try {
+    doc.addImage(dataUrl, "PNG", x, y, width, height, undefined, "FAST");
+  } catch {
+    try {
+      doc.addImage(dataUrl, "JPEG", x, y, width, height, undefined, "FAST");
+    } catch {
+      // Keep the document usable if a custom logo cannot be decoded.
+    }
+  }
 }
 
 export async function generateWorkspacePdf({ kind, quote, invoice, data }) {
@@ -61,165 +42,198 @@ export async function generateWorkspacePdf({ kind, quote, invoice, data }) {
   const { jsPDF } = await import("jspdf");
   const client = data.clients.find((entry) => entry.clientId === quote.clientId);
   const calc = calculateQuote(quote, data.rooms, data.settings);
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const isInvoice = kind === "invoice";
+  const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
   const pageWidth = 210;
   const pageHeight = 297;
-  const margin = 14;
+  const margin = 12;
   const usableWidth = pageWidth - margin * 2;
-  let y = 18;
-
+  const decoratorName = data.settings.decoratorName || "Kurtis";
+  const documentReference = isInvoice ? invoice.invoiceReference : quote.quoteReference;
   const logoDataUrl = await toDataUrl(data.settings.logoUrl || DEFAULT_PDF_LOGO).catch(() => "");
 
-  const ensureSpace = (height) => {
-    if (y + height < pageHeight - 16) return;
-    doc.addPage();
-    y = 18;
-  };
-
-  const sectionTitle = (label) => {
-    ensureSpace(8);
+  const sectionLabel = (label, x, y) => {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(34, 48, 71);
-    doc.text(label, margin, y);
-    y += 6;
+    doc.setFontSize(7.5);
+    doc.setTextColor(7, 113, 127);
+    doc.text(label.toUpperCase(), x, y);
   };
 
-  const paragraph = (text, options = {}) => {
-    const split = doc.splitTextToSize(String(text || ""), options.width || usableWidth);
-    const lineHeight = options.lineHeight || 4.6;
-    ensureSpace(split.length * lineHeight + 2);
-    doc.setFont("helvetica", options.bold ? "bold" : "normal");
-    doc.setFontSize(options.size || 10);
-    doc.setTextColor(...(options.colour || [24, 34, 48]));
-    doc.text(split, options.x || margin, y);
-    y += split.length * lineHeight + (options.gap || 2);
-  };
-
-  const infoCard = (title, lines, tone = [248, 245, 238]) => {
-    const height = 12 + lines.length * 6.5;
-    ensureSpace(height + 2);
+  const fixedCard = ({ x, y, width, height, title, lines, lineLimits = [1, 2, 1], tone = [246, 250, 250], accent = [7, 113, 127] }) => {
     doc.setFillColor(...tone);
-    doc.roundedRect(margin, y - 4, usableWidth, height, 4, 4, "F");
-    paragraph(title, { bold: true, size: 11, gap: 3 });
-    lines.forEach((line) => paragraph(line, { size: 9.5, gap: 2.5 }));
-    y += 1;
+    doc.setDrawColor(224, 235, 236);
+    doc.roundedRect(x, y, width, height, 4, 4, "FD");
+    doc.setFillColor(...accent);
+    doc.roundedRect(x, y, 2.2, height, 1.1, 1.1, "F");
+    sectionLabel(title, x + 6, y + 6.5);
+    let lineY = y + 12;
+    lines.forEach((line, index) => {
+      const split = compactText(doc, line, width - 12, lineLimits[index] || 1);
+      doc.setFont("helvetica", index === 0 ? "bold" : "normal");
+      doc.setFontSize(index === 0 ? 9.2 : 8.2);
+      doc.setTextColor(index === 0 ? 41 : 83, index === 0 ? 62 : 101, index === 0 ? 72 : 112);
+      doc.text(split, x + 6, lineY);
+      lineY += split.length * 4.1 + 1.2;
+    });
   };
 
-  doc.setFillColor(34, 48, 71);
-  doc.roundedRect(margin, 12, usableWidth, 34, 5, 5, "F");
-  if (logoDataUrl) {
-    try {
-      doc.addImage(logoDataUrl, "PNG", margin + 4, 17, 18, 18, undefined, "FAST");
-    } catch {
-      try {
-        doc.addImage(logoDataUrl, "JPEG", margin + 4, 17, 18, 18, undefined, "FAST");
-      } catch {
-        // ignore broken logo formats and continue
-      }
+  const priceRow = (label, value, y, options = {}) => {
+    const { bold = false, total = false, colour = [41, 62, 72] } = options;
+    if (total) {
+      doc.setFillColor(7, 113, 127);
+      doc.roundedRect(margin, y - 4.5, usableWidth, 10, 3, 3, "F");
+      doc.setTextColor(255, 255, 255);
+    } else {
+      doc.setTextColor(...colour);
+      doc.setDrawColor(225, 233, 235);
+      doc.line(margin, y + 3.2, pageWidth - margin, y + 3.2);
     }
-  }
+    doc.setFont("helvetica", bold || total ? "bold" : "normal");
+    doc.setFontSize(total ? 11.5 : 8.6);
+    doc.text(label, margin + (total ? 4 : 1), y + (total ? 1 : 0));
+    doc.text(money(value), pageWidth - margin - (total ? 4 : 1), y + (total ? 1 : 0), { align: "right" });
+  };
+
+  doc.setFillColor(41, 62, 72);
+  doc.roundedRect(margin, 10, usableWidth, 31, 5, 5, "F");
+  addImage(doc, logoDataUrl, margin + 4, 14, 42, 16);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
-  doc.text(data.settings.businessName || "AUTY Decorating", logoDataUrl ? margin + 28 : margin + 4, 24);
-  doc.setFontSize(11);
-  doc.setTextColor(240, 181, 82);
-  doc.text(kind === "quote" ? `Quotation ${quote.quoteReference}` : `Invoice ${invoice.invoiceReference}`, logoDataUrl ? margin + 28 : margin + 4, 31);
-  doc.setTextColor(231, 236, 242);
+  doc.setFontSize(17);
+  doc.text(isInvoice ? "INVOICE" : "QUOTATION", pageWidth - margin - 4, 21, { align: "right" });
+  doc.setFontSize(10);
+  doc.setTextColor(237, 197, 109);
+  doc.text(documentReference, pageWidth - margin - 4, 28, { align: "right" });
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  const businessMeta = [
-    data.settings.decoratorName ? `Decorator: ${data.settings.decoratorName}` : "",
-    data.settings.businessTelephone,
-    data.settings.businessEmail,
-    data.settings.businessAddress
-  ].filter(Boolean).join("  |  ");
-  if (businessMeta) doc.text(doc.splitTextToSize(businessMeta, usableWidth - 76), pageWidth - margin - 72, 21);
-  y = 54;
+  doc.setFontSize(7.5);
+  doc.setTextColor(225, 235, 238);
+  doc.text(data.settings.businessName || "AUTY Decorating", pageWidth - margin - 4, 35, { align: "right" });
 
-  infoCard("Client", [
-    displayName(client),
-    client?.address || "Address not set",
-    [client?.telephone, client?.email].filter(Boolean).join(" | ") || "Contact details not set"
-  ]);
-
-  infoCard(kind === "quote" ? "Schedule" : "Invoice", kind === "quote"
-    ? [
-      `Quote date: ${shortDate(quote.quoteDate)}`,
-      `Proposed start date: ${shortDate(quote.proposedStartDate)}`,
-      `Estimated duration: ${calc.duration} day(s)`,
-      `Estimated completion: ${shortDate(calc.completionDate)}`
-    ]
-    : [
-      `Invoice date: ${shortDate(invoice.invoiceDate)}`,
-      `Original quote: ${quote.quoteReference}`,
-      `Payment due date: ${shortDate(invoice.paymentDueDate)}`,
-      `Invoice status: ${invoice.invoiceStatus}`
-    ], kind === "quote" ? [248, 245, 238] : [239, 247, 243]);
-
-  sectionTitle("Room Breakdown");
-  calc.rooms.forEach((room) => {
-    const type = room.jobType === "Other" ? room.otherJobType || "Other" : room.jobType;
-    const description = doc.splitTextToSize(roomDescription(room), usableWidth - 10);
-    const rowHeight = Math.max(18, description.length * 4.4 + 12);
-    ensureSpace(rowHeight + 2);
-    doc.setFillColor(252, 250, 246);
-    doc.roundedRect(margin, y - 3, usableWidth, rowHeight, 3, 3, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10.5);
-    doc.setTextColor(24, 34, 48);
-    doc.text(room.roomName || "Room", margin + 4, y + 2);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(82, 92, 106);
-    doc.text(`${type} | ${room.estimatedDays} day(s) | ${money(room.finalRoomPrice)}`, margin + 4, y + 8);
-    doc.text(description, margin + 4, y + 14);
-    y += rowHeight + 3;
+  const cardGap = 4;
+  const cardWidth = (usableWidth - cardGap) / 2;
+  const clientContact = [client?.telephone, client?.email].filter(Boolean).join(" | ") || "Contact details not set";
+  fixedCard({
+    x: margin,
+    y: 46,
+    width: cardWidth,
+    height: 35,
+    title: "Prepared for",
+    lines: [displayName(client), client?.address || "Address not set", clientContact]
+  });
+  fixedCard({
+    x: margin + cardWidth + cardGap,
+    y: 46,
+    width: cardWidth,
+    height: 31,
+    title: isInvoice ? "Payment schedule" : "Project schedule",
+    lines: isInvoice
+      ? [`Invoice date: ${shortDate(invoice.invoiceDate)}`, `Payment due: ${shortDate(invoice.paymentDueDate)}`, `Status: ${invoice.invoiceStatus}`]
+      : [`Quote date: ${shortDate(quote.quoteDate)}`, `Proposed start: ${shortDate(quote.proposedStartDate)}`, `Duration: ${calc.duration} day(s)`],
+    tone: isInvoice ? [250, 246, 239] : [241, 249, 249],
+    accent: isInvoice ? [200, 137, 51] : [79, 158, 168]
   });
 
-  infoCard("Price Summary", [
-    `Labour subtotal: ${money(calc.labourSubtotal)}`,
-    `Materials total: ${money(calc.materialsTotal)}`,
-    `Discount: ${money(calc.discountAmount)}`,
-    `VAT: ${money(calc.vatAmount)}`,
-    `Job total: ${money(calc.total)}`,
-    `Deposit due now: ${money(calc.depositAmount)}`,
-    `Remainder due on completion: ${money(calc.remainderAmount)}`
-  ], [255, 248, 232]);
+  sectionLabel("Work breakdown", margin, 84);
+  const tableTop = 88;
+  const roomCount = Math.max(calc.rooms.length, 1);
+  const pricingRows = 7;
+  const pricingHeight = pricingRows * 6 + 14;
+  const lowerSectionHeight = pricingHeight + 55;
+  const availableTableHeight = pageHeight - 14 - tableTop - lowerSectionHeight;
+  const rowHeight = Math.max(4.7, Math.min(8, (availableTableHeight - 7) / roomCount));
+  const tableBottom = tableTop + 7 + roomCount * rowHeight;
 
-  if (shouldPrintWholeJobSpecifics(quote.wholeJobSpecifics)) {
-    infoCard("Whole Job Specifics", doc.splitTextToSize(quote.wholeJobSpecifics, usableWidth - 10), [245, 247, 255]);
-  }
+  doc.setFillColor(231, 241, 242);
+  doc.roundedRect(margin, tableTop, usableWidth, 7, 2.4, 2.4, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.4);
+  doc.setTextColor(41, 62, 72);
+  doc.text("ROOM / WORK", margin + 3, tableTop + 4.7);
+  doc.text("DAYS", pageWidth - margin - 35, tableTop + 4.7, { align: "right" });
+  doc.text("PRICE", pageWidth - margin - 3, tableTop + 4.7, { align: "right" });
 
-  if (kind === "invoice" && invoice) {
-    infoCard("Payment Terms", [
-      `Deposit paid: ${money(invoice.depositPaid)}`,
-      `Remaining balance: ${money(invoice.balanceDue)}`,
-      data.settings.paymentDetails || "Payment details to be added."
-    ], [245, 247, 255]);
-    if (data.settings.paymentTerms) {
-      sectionTitle("Terms");
-      paragraph(data.settings.paymentTerms, { size: 9.5 });
+  const rooms = calc.rooms.length ? calc.rooms : [{ roomName: "Project works", jobType: "Decorating", estimatedDays: calc.duration, finalRoomPrice: calc.labourSubtotal }];
+  rooms.forEach((room, index) => {
+    const rowY = tableTop + 7 + index * rowHeight;
+    if (index % 2 === 0) {
+      doc.setFillColor(249, 251, 251);
+      doc.rect(margin, rowY, usableWidth, rowHeight, "F");
     }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(rowHeight < 5.5 ? 6.6 : 7.6);
+    doc.setTextColor(41, 62, 72);
+    const workType = room.jobType === "Other" ? room.otherJobType || "Other" : room.jobType;
+    const roomLabel = `${room.roomName || "Room"} - ${workType}`;
+    doc.text(compactText(doc, roomLabel, usableWidth - 58, 1), margin + 3, rowY + rowHeight * 0.68);
+    doc.text(String(room.estimatedDays || 0), pageWidth - margin - 35, rowY + rowHeight * 0.68, { align: "right" });
+    doc.setFont("helvetica", "bold");
+    doc.text(money(room.finalRoomPrice), pageWidth - margin - 3, rowY + rowHeight * 0.68, { align: "right" });
+  });
+
+  let priceY = tableBottom + 9;
+  sectionLabel("Cost summary", margin, priceY);
+  priceY += 6;
+  const summaryRows = [
+    ["Labour subtotal", calc.labourSubtotal],
+    ["Materials", calc.materialsTotal],
+    ["Discount", -calc.discountAmount],
+    ["VAT", calc.vatAmount]
+  ];
+  summaryRows.forEach(([label, value]) => {
+    priceRow(label, value, priceY);
+    priceY += 6;
+  });
+  if (isInvoice) {
+    priceRow("Deposit paid", invoice.depositPaid, priceY);
+    priceY += 6;
+    priceRow("Outstanding balance", invoice.balanceDue, priceY, { bold: true, colour: [201, 82, 82] });
   } else {
-    infoCard("Quotation Notes", [
-      data.settings.quoteTerms || "This quotation is valid for 30 days.",
-      data.settings.paymentTerms || "Deposit due now. Remaining balance due on completion.",
-      data.settings.acceptanceNotes || "Please confirm acceptance before the proposed start date."
-    ], [245, 247, 255]);
-    sectionTitle("Acceptance");
-    paragraph("Accepted by: ______________________________", { size: 10, bold: true });
-    paragraph("Name / Signature", { size: 9, colour: [108, 117, 125] });
-    paragraph("Date: ______________________________", { size: 10, bold: true });
+    priceRow("Deposit due", calc.depositAmount, priceY);
+    priceY += 6;
+    priceRow("Balance on completion", calc.remainderAmount, priceY, { bold: true });
   }
+  priceY += 9;
+  priceRow(isInvoice ? "FINAL INVOICE TOTAL" : "FINAL QUOTE TOTAL", calc.total, priceY, { total: true });
 
-  doc.setDrawColor(220, 220, 220);
-  doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+  const detailsY = priceY + 11;
+  const paymentDate = isInvoice ? shortDate(invoice.paymentDueDate) : shortDate(quote.proposedStartDate);
+  fixedCard({
+    x: margin,
+    y: detailsY,
+    width: cardWidth,
+    height: 31,
+    title: isInvoice ? "Payment details" : "Terms",
+    lines: isInvoice
+      ? [`Payment due: ${paymentDate}`, data.settings.paymentDetails || "Bank transfer details to be added.", data.settings.paymentTerms || "Please pay by the due date shown."]
+      : [`Proposed start: ${paymentDate}`, data.settings.quoteTerms || "Quotation valid for 30 days.", data.settings.paymentTerms || "Deposit due on acceptance."],
+    lineLimits: [1, 2, 2],
+    tone: [250, 246, 239],
+    accent: [200, 137, 51]
+  });
+  fixedCard({
+    x: margin + cardWidth + cardGap,
+    y: detailsY,
+    width: cardWidth,
+    height: 35,
+    title: "Thank you",
+    lines: [
+      "Thank you for choosing Auty Decorating.",
+      "We appreciate your business and look forward to working with you.",
+      `${decoratorName} | Auty Decorating`
+    ],
+    tone: [241, 249, 249],
+    accent: [7, 113, 127]
+  });
+
+  doc.setDrawColor(219, 229, 231);
+  doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(108, 117, 125);
-  doc.text(`${data.settings.businessName || "AUTY Decorating"}${data.settings.decoratorName ? ` | ${data.settings.decoratorName}` : ""} | Generated ${shortDate(today())}`, margin, pageHeight - 9);
+  doc.setFontSize(7.2);
+  doc.setTextColor(102, 118, 125);
+  const footerLeft = [data.settings.businessTelephone, data.settings.businessEmail].filter(Boolean).join(" | ") || "AUTY Decorating";
+  doc.text(footerLeft, margin, pageHeight - 7.5);
+  doc.text(`Generated ${shortDate(today())} | Page 1 of 1`, pageWidth - margin, pageHeight - 7.5, { align: "right" });
 
-  doc.save(kind === "quote" ? `${quote.quoteReference}.pdf` : `${invoice.invoiceReference}.pdf`);
+  doc.save(isInvoice ? `${invoice.invoiceReference}.pdf` : `${quote.quoteReference}.pdf`);
+  return doc;
 }

@@ -29,6 +29,28 @@
 
 final result: passed
 
+## Final Liquid Glass And Document QA
+
+- Reference deployment: `https://this-manc-lad.github.io/auty-decorating-workspace/`
+- Local verification URL: `http://127.0.0.1:5173/?preview&qa=prestige`
+- Viewports checked: 430 x 932 mobile and 1280 x 800 desktop
+
+**Visual And Interaction Checks**
+- Restored the branded Welcome Back entry with the supplied AUTY logo, a restrained halo, glass shine, and a responsive three-second reveal.
+- Unified cards, controls, drawers, docks, and transitions around the existing AUTY glass system with short spring motion and reduced-motion support.
+- Fixed the bottom dock to the viewport with safe-area spacing and added page padding so content remains fully reachable.
+- Kept the settings control at a reliable 44 x 44 tap target and confirmed that it opens the Settings panel.
+- Converted the calendar colour key to a collapsed glass drawer and strengthened the distinction between all calendar categories.
+
+**Functional Checks**
+- Calendar entries can be created, edited, date-overridden, and deleted, with changes persisted locally or through the configured Supabase data path.
+- Changing a calendar type updates the editable title without duplicating a previous type label.
+- Quote and invoice dates remain editable before saving or exporting.
+- Quote and invoice PDFs use a single-page A4 layout with left-aligned labels, right-aligned prices, prominent totals, clear dates, and a Kurtis / AUTY Decorating thank-you.
+- Production build and all eight browser journey tests passed, including one-page PDF assertions and dock position checks after scrolling.
+
+final result: passed
+
 ## Final Annotation And Interaction Pass
 
 - Fixed expanded multi-day calendar details so they use a contained full-width card instead of inheriting connected-band corner shapes.

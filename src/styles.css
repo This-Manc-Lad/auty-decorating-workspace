@@ -24,6 +24,8 @@
   --glass-shadow: 0 22px 58px rgba(17, 41, 54, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.82);
   --auty-teal-deep: #056e79;
   --auty-gold-soft: #edc56d;
+  --auty-spring: cubic-bezier(0.2, 1.35, 0.32, 1);
+  --auty-smooth: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 * {
@@ -104,6 +106,7 @@ button.is-active :where(*) {
     radial-gradient(circle at 14% 2%, rgba(255, 255, 255, 0.66), transparent 24rem),
     radial-gradient(circle at 86% 10%, rgba(7, 139, 152, 0.16), transparent 24rem),
     linear-gradient(155deg, rgba(234, 243, 244, 0.82), rgba(175, 196, 201, 0.8));
+  padding-bottom: calc(8.5rem + env(safe-area-inset-bottom)) !important;
 }
 
 .auty-app-shell::before,
@@ -149,8 +152,8 @@ button.is-active :where(*) {
   box-shadow: 0 24px 64px rgba(17, 41, 54, 0.14), 0 4px 14px rgba(17, 41, 54, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.88) !important;
   backdrop-filter: blur(28px) saturate(1.25) !important;
   -webkit-backdrop-filter: blur(28px) saturate(1.25) !important;
-  transition: transform 240ms ease, box-shadow 240ms ease, border-color 240ms ease;
-  animation: autyPanelArrive 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: transform 280ms var(--auty-spring), box-shadow 260ms var(--auty-smooth), border-color 220ms ease;
+  animation: autyPanelArrive 520ms var(--auty-spring) both;
 }
 
 .auty-app-shell section section,
@@ -211,6 +214,7 @@ button.is-active :where(*) {
   box-shadow: 0 18px 48px rgba(17, 41, 54, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
   backdrop-filter: blur(30px) saturate(1.3) !important;
   -webkit-backdrop-filter: blur(30px) saturate(1.3) !important;
+  transform: translateZ(0);
 }
 
 .auty-top-dock::after {
@@ -227,10 +231,15 @@ button.is-active :where(*) {
 }
 
 .auty-settings-cog {
+  z-index: 3;
+  min-width: 44px;
+  min-height: 44px;
   border: 1px solid rgba(255, 255, 255, 0.82);
-  background: rgba(255, 255, 255, 0.46);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.28));
   box-shadow: 0 10px 24px rgba(17, 41, 54, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(20px) saturate(1.25);
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  touch-action: manipulation;
 }
 
 .auty-settings-cog:hover {
@@ -238,11 +247,25 @@ button.is-active :where(*) {
   background: #01717f;
 }
 
+.auty-settings-cog:focus-visible {
+  outline: 3px solid rgba(200, 137, 51, 0.34);
+  outline-offset: 3px;
+}
+
 .auty-bottom-dock {
+  position: fixed !important;
+  left: 50% !important;
+  bottom: max(0.75rem, env(safe-area-inset-bottom)) !important;
+  z-index: 60 !important;
+  width: min(92vw, 520px) !important;
+  translate: -50% 0 !important;
+  transform: translateZ(0) !important;
+  will-change: transform;
+  contain: layout paint;
   overflow: hidden;
-  background: rgba(248, 252, 252, 0.52) !important;
+  background: linear-gradient(145deg, rgba(250, 253, 253, 0.72), rgba(229, 242, 243, 0.48)) !important;
   border-color: rgba(255, 255, 255, 0.76) !important;
-  box-shadow: 0 22px 58px rgba(17, 41, 54, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.88) !important;
+  box-shadow: 0 24px 60px rgba(17, 41, 54, 0.25), 0 4px 14px rgba(17, 41, 54, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.92) !important;
   backdrop-filter: blur(28px) saturate(1.35) !important;
   -webkit-backdrop-filter: blur(28px) saturate(1.35) !important;
 }
@@ -260,9 +283,10 @@ button.is-active :where(*) {
 .auty-bottom-dock button,
 .auty-job-tabs button,
 .auty-settings-cog,
-.auty-glass-segment {
+.auty-glass-segment,
+.auty-app-shell button {
   transform-origin: center;
-  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease;
+  transition: transform 240ms var(--auty-spring), box-shadow 220ms var(--auty-smooth), background-color 180ms ease, color 180ms ease, border-color 180ms ease;
 }
 
 .auty-bottom-dock button:active,
@@ -270,7 +294,8 @@ button.is-active :where(*) {
 .auty-settings-cog:active,
 .auty-glass-segment:active,
 .auty-app-shell button:active {
-  transform: translateY(1px) scale(0.975);
+  transform: translateY(2px) scale(0.955);
+  transition-duration: 90ms;
 }
 
 .auty-glass-slider {
@@ -353,7 +378,7 @@ button.is-active :where(*) {
   border: 1px solid rgba(255, 255, 255, 0.78);
   background: rgba(255, 255, 255, 0.44);
   box-shadow: 0 9px 22px rgba(17, 41, 54, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.82);
-  transition: border-radius 220ms ease, min-height 220ms ease, padding 220ms ease, background 220ms ease, transform 180ms ease;
+  transition: border-radius 280ms var(--auty-spring), min-height 280ms var(--auty-spring), padding 280ms var(--auty-spring), background 220ms ease, transform 220ms var(--auty-spring), box-shadow 220ms ease;
 }
 
 .auty-calendar-cell:hover {
@@ -422,6 +447,23 @@ button.is-active :where(*) {
   background: rgba(255, 255, 255, 0.58);
 }
 
+.auty-calendar-key-toggle {
+  min-height: 3.25rem;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.56), rgba(255, 255, 255, 0.24)) !important;
+  box-shadow: 0 12px 30px rgba(17, 41, 54, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(20px) saturate(1.25);
+}
+
+.auty-calendar-key-drawer {
+  padding: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 1.25rem;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.54), rgba(255, 255, 255, 0.22));
+  box-shadow: 0 16px 36px rgba(17, 41, 54, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+}
+
 .auty-expand-panel {
   transform-origin: top;
   animation: autyExpandPanel 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -462,24 +504,153 @@ button.is-active :where(*) {
   font-weight: 800 !important;
 }
 
+.auty-financial-list {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 1.35rem;
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 12px 28px rgba(17, 41, 54, 0.07);
+  backdrop-filter: blur(18px);
+}
+
+.auty-financial-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.68);
+  color: #53656e;
+  font-size: 0.875rem;
+}
+
+.auty-financial-row:last-child {
+  border-bottom: 0;
+}
+
+.auty-financial-row strong {
+  flex: 0 0 auto;
+  color: #293e48;
+  text-align: right;
+}
+
+.auty-financial-row--accent {
+  background: rgba(200, 137, 51, 0.11);
+  color: #7b5521;
+}
+
+.auty-financial-row--warning strong {
+  color: #b54747;
+}
+
+.auty-financial-row--total {
+  min-height: 3.65rem;
+  background: #01717f;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.auty-financial-row--total strong {
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 800 !important;
+}
+
+.auty-payment-date {
+  border: 1px solid rgba(237, 197, 109, 0.52);
+  border-radius: 1rem;
+  background: rgba(200, 137, 51, 0.22);
+  padding: 0.85rem 1rem;
+  color: #fff4d9;
+  font-size: 0.9rem;
+  font-weight: 700 !important;
+  text-align: center;
+}
+
+.auty-document-thanks {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.09);
+  padding: 0.9rem 1rem;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.auty-document-thanks strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: #edc56d !important;
+  font-weight: 700 !important;
+}
+
 .auty-welcome {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100 !important;
   background:
-    radial-gradient(circle at 50% 36%, rgba(255, 255, 255, 0.96), rgba(218, 234, 236, 0.94) 46%, rgba(162, 202, 206, 0.96));
-  animation: welcomeFade 2.35s ease forwards;
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.98), rgba(224, 239, 240, 0.96) 42%, rgba(145, 190, 195, 0.98));
+  animation: welcomeFade 2.95s var(--auty-smooth) forwards;
+}
+
+.auty-welcome::before,
+.auty-welcome::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.auty-welcome::before {
+  width: min(96vw, 760px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  background: radial-gradient(circle at 38% 26%, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.1) 52%, rgba(1, 113, 127, 0.08));
+  box-shadow: 0 42px 110px rgba(17, 63, 76, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(28px) saturate(1.3);
+  animation: welcomeOrb 2.5s var(--auty-spring) both;
+}
+
+.auty-welcome::after {
+  width: min(64vw, 480px);
+  height: 6px;
+  bottom: 13%;
+  background: linear-gradient(90deg, transparent, rgba(200, 137, 51, 0.9), transparent);
+  box-shadow: 0 0 24px rgba(200, 137, 51, 0.34);
+  animation: welcomeLine 2.4s var(--auty-smooth) both;
+}
+
+.auty-welcome-orb {
+  width: min(94vw, 720px);
+  min-height: min(82vh, 720px);
+}
+
+.auty-welcome-shine {
+  position: absolute;
+  width: 42%;
+  height: 76%;
+  border-radius: 999px;
+  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.74), transparent);
+  filter: blur(18px);
+  transform: translateX(-135%) rotate(8deg);
+  animation: welcomeShine 1.8s 0.3s var(--auty-smooth) both;
 }
 
 .auty-welcome-logo {
-  animation: welcomeLogo 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  filter: drop-shadow(0 22px 34px rgba(1, 113, 127, 0.18));
+  animation: welcomeLogo 2.2s var(--auty-spring) forwards;
 }
 
 .auty-welcome-copy {
-  animation: welcomeCopy 2.05s ease forwards;
+  animation: welcomeCopy 2.35s var(--auty-smooth) forwards;
 }
 
 @keyframes welcomeLogo {
-  0% { opacity: 0; transform: scale(1.22); filter: blur(14px); }
-  34% { opacity: 1; transform: scale(0.96); filter: blur(0); }
-  100% { opacity: 1; transform: scale(0.84); filter: blur(0); }
+  0% { opacity: 0; transform: translateY(18px) scale(0.74); filter: blur(18px) drop-shadow(0 22px 34px rgba(1, 113, 127, 0)); }
+  42% { opacity: 1; transform: translateY(-4px) scale(1.03); filter: blur(0) drop-shadow(0 22px 34px rgba(1, 113, 127, 0.18)); }
+  100% { opacity: 1; transform: translateY(0) scale(0.92); filter: blur(0) drop-shadow(0 22px 34px rgba(1, 113, 127, 0.18)); }
 }
 
 @keyframes welcomeCopy {
@@ -488,12 +659,30 @@ button.is-active :where(*) {
 }
 
 @keyframes welcomeFade {
-  0%, 72% { opacity: 1; visibility: visible; }
+  0%, 78% { opacity: 1; visibility: visible; }
   100% { opacity: 0; visibility: hidden; }
 }
 
+@keyframes welcomeOrb {
+  0% { opacity: 0; transform: scale(0.72); }
+  52% { opacity: 1; transform: scale(1.025); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes welcomeShine {
+  0% { opacity: 0; transform: translateX(-135%) rotate(8deg); }
+  24% { opacity: 0.82; }
+  100% { opacity: 0; transform: translateX(145%) rotate(8deg); }
+}
+
+@keyframes welcomeLine {
+  0%, 24% { opacity: 0; transform: scaleX(0); }
+  55%, 100% { opacity: 1; transform: scaleX(1); }
+}
+
 @keyframes autyPanelArrive {
-  0% { opacity: 0; transform: translateY(9px) scale(0.992); }
+  0% { opacity: 0; transform: translateY(14px) scale(0.975); }
+  72% { opacity: 1; transform: translateY(-2px) scale(1.004); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
@@ -503,7 +692,8 @@ button.is-active :where(*) {
 }
 
 @keyframes autyExpandPanel {
-  0% { opacity: 0; transform: translateY(-7px) scaleY(0.94); }
+  0% { opacity: 0; transform: translateY(-9px) scaleY(0.86); }
+  72% { opacity: 1; transform: translateY(1px) scaleY(1.02); }
   100% { opacity: 1; transform: translateY(0) scaleY(1); }
 }
 
@@ -514,7 +704,7 @@ button.is-active :where(*) {
 
 .auty-page-stage,
 .auty-tab-stage {
-  animation: autyTabIn 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: autyTabIn 440ms var(--auty-spring) both;
 }
 
 .auty-app-shell button {
@@ -528,6 +718,22 @@ button.is-active :where(*) {
 @media (min-width: 640px) {
   .auty-job-tabs {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .auty-top-dock {
+    padding-left: 3.75rem !important;
+    padding-right: 3.75rem !important;
+  }
+
+  .auty-bottom-dock {
+    width: calc(100vw - 1.5rem) !important;
+    max-width: 520px;
+  }
+
+  .auty-bottom-dock .auty-dock-button {
+    min-height: 3.6rem;
   }
 }
 

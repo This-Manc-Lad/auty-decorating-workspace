@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { initialState, STORAGE_KEY } from "../src/lib/constants.js";
+
+function expectSinglePagePdf(download) {
+  return download.path().then((path) => {
+    const pdf = readFileSync(path).toString("latin1");
+    expect((pdf.match(/\/Type\s*\/Page\b/g) || []).length).toBe(1);
+  });
+}
 
 test("the refreshed workspace navigation and key controls work", async ({ page }) => {
   await page.goto("/?preview");
@@ -9,6 +17,8 @@ test("the refreshed workspace navigation and key controls work", async ({ page }
   await expect(page.getByRole("img", { name: "AUTY Decorating logo" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toHaveCount(0);
   await expect(page.getByLabel("Open workspace settings")).toBeVisible();
+  await expect(page.locator(".auty-bottom-dock")).toHaveCSS("position", "fixed");
+  const dockBeforeScroll = await page.locator(".auty-bottom-dock").boundingBox();
   await page.getByLabel("Open workspace settings").click();
   await expect(page.getByLabel("Default Deposit")).toHaveValue("50%");
   await expect(page.getByLabel("Decorator Name")).toBeVisible();
@@ -17,12 +27,14 @@ test("the refreshed workspace navigation and key controls work", async ({ page }
   expect(buttonGradients.every((value) => value === "none")).toBeTruthy();
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await expect(page.locator('[data-auty-top-dock="true"]')).toHaveAttribute("data-compact", "true");
+  const dockAfterScroll = await page.locator(".auty-bottom-dock").boundingBox();
+  expect(Math.abs(dockAfterScroll.y - dockBeforeScroll.y)).toBeLessThan(2);
   await page.evaluate(() => window.scrollTo(0, 0));
 
   await page.getByLabel("Calendar", { exact: true }).click();
   await expect(page.getByText("Business Calendar")).toBeVisible();
   await expect(page.locator('[aria-label="Calendar colour key"]')).toHaveCount(0);
-  await page.getByRole("button", { name: "Calendar key" }).click();
+  await page.getByRole("button", { name: "Calendar Key" }).click();
   await expect(page.locator('[aria-label="Calendar colour key"]')).toBeVisible();
 
   const dateCell = page.locator('.auty-calendar-cell button[aria-label*="no entries"]').first();
@@ -84,6 +96,53 @@ test("existing-client quoter flow reveals room options only after selection", as
   await page.getByRole("button", { name: "Complete Room" }).click();
   await page.getByRole("button", { name: "Go to Job Overview" }).click();
   await expect(page.getByText("Materials total").locator("..")).toContainText("£125.50");
+  await page.getByLabel("Quote Date").fill("2026-07-01");
+  await page.getByLabel("Proposed Start Date").fill("2026-07-08");
+  const quoteDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Generate Quote PDF" }).click();
+  await expectSinglePagePdf(await quoteDownloadPromise);
+
+  await page.getByRole("button", { name: "Invoice Generator" }).click();
+  await page.getByLabel("Invoice Date").fill("2026-07-10");
+  await page.getByLabel("Payment Due Date").fill("2026-07-24");
+  await page.getByRole("button", { name: "Save Invoice Changes" }).click();
+  const invoiceDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Generate Final Invoice" }).click();
+  await expectSinglePagePdf(await invoiceDownloadPromise);
+});
+
+test("calendar entries can be titled, edited, overridden, and deleted", async ({ page }) => {
+  const workspace = {
+    ...initialState,
+    calendarEntries: [{
+      calendarEntryId: "cal-edit",
+      title: "Original booking",
+      type: "Other Work",
+      startDate: "2026-06-12",
+      endDate: "2026-06-12",
+      notes: "Initial note"
+    }]
+  };
+  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), { key: STORAGE_KEY, value: JSON.stringify(workspace) });
+  await page.goto("/?preview");
+  await expect(page.getByText("Welcome Back")).toBeHidden({ timeout: 5000 });
+  await page.getByLabel("Calendar", { exact: true }).click();
+  await page.getByLabel("Edit Original booking").click();
+  await expect(page.getByRole("heading", { name: "Edit Booking" })).toBeVisible();
+  await page.getByLabel("Type").selectOption("Quote Visit");
+  await expect(page.getByLabel("Title")).toHaveValue("Original booking · Quote Visit");
+  await page.getByLabel("Start Date").fill("2026-06-18");
+  await page.getByLabel("End Date").fill("2026-06-20");
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  await expect(page.getByText("Original booking · Quote Visit", { exact: true })).toBeVisible();
+  const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  const edited = stored.calendarEntries.find((entry) => entry.calendarEntryId === "cal-edit");
+  expect(edited.startDate).toBe("2026-06-18");
+  expect(edited.endDate).toBe("2026-06-20");
+  expect(edited.type).toBe("Quote Visit");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByLabel("Delete Original booking · Quote Visit").click();
+  await expect(page.getByText("Original booking · Quote Visit", { exact: true })).toHaveCount(0);
 });
 
 test("reminders can be created and surfaced on the dashboard", async ({ page }) => {

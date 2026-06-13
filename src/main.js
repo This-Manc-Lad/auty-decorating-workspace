@@ -165,7 +165,7 @@ function App() {
   }, [notice]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowWelcome(false), 2400);
+    const timer = setTimeout(() => setShowWelcome(false), 3000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -737,9 +737,13 @@ function WelcomeOverlay({ brandLogo }) {
   return h("div", {
     className: "auty-welcome pointer-events-none fixed inset-0 z-[100] grid place-items-center overflow-hidden px-6"
   },
-    h("div", { className: "relative z-10 text-center" },
-      h("img", { src: brandLogo, alt: "AUTY Decorating", className: "auty-welcome-logo mx-auto max-h-[82vh] w-[min(94vw,680px)] object-contain" }),
-      h("p", { className: "auty-welcome-copy -mt-6 text-xl tracking-[0.18em] text-slate-700 sm:text-2xl" }, "Welcome Back")
+    h("div", { className: "auty-welcome-orb relative z-10 grid place-items-center text-center" },
+      h("div", { className: "auty-welcome-shine" }),
+      h("img", { src: brandLogo, alt: "AUTY Decorating", className: "auty-welcome-logo relative z-10 mx-auto max-h-[70vh] w-[min(88vw,620px)] object-contain" }),
+      h("div", { className: "auty-welcome-copy relative z-10 -mt-4 sm:-mt-8" },
+        h("p", { className: "text-[10px] uppercase tracking-[0.42em] text-[#C88933] sm:text-xs" }, "Your decorating workspace"),
+        h("p", { className: "mt-3 text-2xl tracking-[0.08em] text-[#293E48] sm:text-3xl" }, "Welcome Back")
+      )
     )
   );
 }
@@ -913,10 +917,20 @@ function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTa
   );
 }
 
-function CalendarPage({ data, upsert, setNotice }) {
+function calendarTitleWithType(title, nextType) {
+  const escapedTypes = CALENDAR_TYPES.map((type) => type.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const typeSuffix = new RegExp(`\\s*(?:·|\\||-)\\s*(?:${escapedTypes.join("|")})$`, "i");
+  const cleanTitle = String(title || "").replace(typeSuffix, "").trim();
+  if (!cleanTitle) return nextType;
+  if (cleanTitle.toLowerCase().includes(nextType.toLowerCase())) return cleanTitle;
+  return `${cleanTitle} · ${nextType}`;
+}
+
+function CalendarPage({ data, upsert, removeItem, setNotice }) {
   const [monthView, setMonthView] = useState(new Date());
   const [expandedDate, setExpandedDate] = useState("");
   const [showCalendarKey, setShowCalendarKey] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState("");
   const [entry, setEntry] = useState({
     title: "",
     type: "Personal Time",
@@ -945,9 +959,42 @@ function CalendarPage({ data, upsert, setNotice }) {
       setNotice("Title and start date are required");
       return;
     }
-    upsert("calendarEntries", { ...entry, calendarEntryId: uid("cal") }, "calendarEntryId");
-    setEntry({ ...entry, title: "", notes: "", type: "Personal Time" });
-    setNotice(overlaps ? "Calendar booking saved with overlap warning" : "Calendar booking saved");
+    const savedEntry = {
+      ...entry,
+      title: calendarTitleWithType(entry.title, entry.type),
+      endDate: entry.endDate || entry.startDate,
+      calendarEntryId: editingEntryId || uid("cal")
+    };
+    upsert("calendarEntries", savedEntry, "calendarEntryId");
+    setEntry({ ...entry, title: "", notes: "", type: "Personal Time", startDate: today(), endDate: today() });
+    setEditingEntryId("");
+    setNotice(overlaps ? "Calendar booking saved with overlap warning" : editingEntryId ? "Calendar entry updated" : "Calendar booking saved");
+  };
+
+  const editEntry = (entryItem) => {
+    setEditingEntryId(entryItem.calendarEntryId);
+    setEntry({
+      ...entry,
+      ...entryItem,
+      endDate: entryItem.endDate || entryItem.startDate
+    });
+    window.requestAnimationFrame(() => {
+      document.getElementById("calendar-booking-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("calendar-booking-title")?.focus({ preventScroll: true });
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingEntryId("");
+    setEntry({ ...entry, title: "", notes: "", type: "Personal Time", startDate: today(), endDate: today() });
+    setNotice("Calendar edit cancelled");
+  };
+
+  const deleteEntry = (entryItem) => {
+    if (!window.confirm(`Delete ${entryItem.title}?`)) return;
+    removeItem("calendarEntries", "calendarEntryId", entryItem.calendarEntryId);
+    if (editingEntryId === entryItem.calendarEntryId) cancelEditing();
+    setNotice("Calendar entry deleted");
   };
 
   const bookDate = (date) => {
@@ -1023,11 +1070,12 @@ function CalendarPage({ data, upsert, setNotice }) {
       h("div", { className: "mt-5" },
         h("button", {
           type: "button",
+          "aria-controls": "calendar-colour-key",
           "aria-expanded": showCalendarKey,
           onClick: () => setShowCalendarKey((current) => !current),
           className: "auty-calendar-key-toggle flex w-full items-center justify-between rounded-[20px] border border-white/70 bg-white/32 px-4 py-3 text-sm text-slate-700"
-        }, h("span", null, "Calendar key"), h(ChevronDown, { size: 18, className: classNames("transition-transform duration-300", showCalendarKey ? "rotate-180" : "") })),
-        showCalendarKey && h("div", { className: "auty-expand-panel mt-3 flex flex-wrap gap-2", "aria-label": "Calendar colour key" },
+        }, h("span", null, "Calendar Key"), h(ChevronDown, { size: 18, className: classNames("transition-transform duration-300", showCalendarKey ? "rotate-180" : "") })),
+        showCalendarKey && h("div", { id: "calendar-colour-key", className: "auty-calendar-key-drawer auty-expand-panel mt-3 flex flex-wrap gap-2", "aria-label": "Calendar colour key" },
           CALENDAR_TYPES.map((type) => h("span", {
             key: type,
             className: "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] text-slate-700",
@@ -1038,10 +1086,13 @@ function CalendarPage({ data, upsert, setNotice }) {
     ),
     h("aside", { className: "space-y-4" },
       h("div", { id: "calendar-booking-form", className: "scroll-mt-28 rounded-[30px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.5))] p-5 shadow-[0_22px_55px_rgba(24,34,48,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl" },
-        h("h3", { className: "text-lg font-black text-slate-900" }, "Add Booking"),
+        h("div", { className: "flex items-center justify-between gap-3" },
+          h("h3", { className: "text-lg font-black text-slate-900" }, editingEntryId ? "Edit Booking" : "Add Booking"),
+          editingEntryId && h("span", { className: "rounded-full bg-[#C88933]/15 px-3 py-1 text-[11px] text-[#8B5E20]" }, "Editing saved entry")
+        ),
         h("div", { className: "mt-4 space-y-3" },
           h(Field, { id: "calendar-booking-title", label: "Title", value: entry.title, onChange: (value) => setEntry({ ...entry, title: value }) }),
-          h(Field, { label: "Type", value: entry.type, options: CALENDAR_TYPES, onChange: (value) => setEntry({ ...entry, type: value }) }),
+          h(Field, { label: "Type", value: entry.type, options: CALENDAR_TYPES, onChange: (value) => setEntry({ ...entry, type: value, title: calendarTitleWithType(entry.title, value) }) }),
           h(Field, { label: "Start Date", value: entry.startDate, type: "date", onChange: (value) => setEntry({ ...entry, startDate: value }) }),
           h(Field, { label: "End Date", value: entry.endDate, type: "date", onChange: (value) => setEntry({ ...entry, endDate: value }) }),
           entry.type === "Reminder" && h(Field, { label: "Due Time", value: entry.startTime, type: "time", onChange: (value) => setEntry({ ...entry, startTime: value }) }),
@@ -1065,7 +1116,7 @@ function CalendarPage({ data, upsert, setNotice }) {
                 ...entry,
                 quoteId: value,
                 clientId: quote?.clientId || entry.clientId,
-                title: quote ? `${displayName(client)} decorating job` : entry.title,
+                title: quote ? calendarTitleWithType(`${displayName(client)} decorating job`, "Potential Job (Unconfirmed)") : entry.title,
                 type: quote ? "Potential Job (Unconfirmed)" : entry.type,
                 startDate: quote?.proposedStartDate || entry.startDate,
                 endDate: calc?.completionDate || entry.endDate,
@@ -1075,7 +1126,10 @@ function CalendarPage({ data, upsert, setNotice }) {
           }),
           h(Field, { label: "Notes", value: entry.notes, textarea: true, onChange: (value) => setEntry({ ...entry, notes: value }) }),
           overlaps && h("div", { className: "rounded-[20px] bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700" }, "This booking overlaps with personal time."),
-          h(ActionButton, { label: "Save Calendar Entry", onClick: saveEntry, icon: Save })
+          h("div", { className: "grid gap-2 sm:grid-cols-2" },
+            h(ActionButton, { label: editingEntryId ? "Save Changes" : "Save Calendar Entry", onClick: saveEntry, icon: Save, className: "w-full" }),
+            editingEntryId && h(ActionButton, { label: "Cancel Editing", onClick: cancelEditing, icon: X, variant: "soft", className: "w-full" })
+          )
         )
       ),
       h("div", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
@@ -1088,7 +1142,11 @@ function CalendarPage({ data, upsert, setNotice }) {
                 h("p", { className: "mt-2 font-black text-slate-900" }, entryItem.title),
                 h("p", { className: "text-sm text-slate-500" }, `${shortDate(entryItem.startDate)} to ${shortDate(entryItem.endDate)}`)
               ),
-              h(IconButton, { label: `Download ${entryItem.title} calendar file`, icon: Download, onClick: () => exportIcs(entryItem) })
+              h("div", { className: "flex shrink-0 items-center gap-2" },
+                h(IconButton, { label: `Edit ${entryItem.title}`, icon: SquarePen, onClick: () => editEntry(entryItem) }),
+                h(IconButton, { label: `Download ${entryItem.title} calendar file`, icon: Download, onClick: () => exportIcs(entryItem) }),
+                h(IconButton, { label: `Delete ${entryItem.title}`, icon: Trash2, onClick: () => deleteEntry(entryItem) })
+              )
             ),
             entryItem.type === "Reminder" && h("div", { className: "mt-3 grid grid-cols-2 gap-2" },
               h("button", { type: "button", onClick: () => upsert("calendarEntries", { ...entryItem, reminderStatus: "Completed" }, "calendarEntryId"), className: "rounded-full bg-[#01717F] px-3 py-2 text-xs text-white" }, "Complete"),
@@ -1103,14 +1161,14 @@ function CalendarPage({ data, upsert, setNotice }) {
 
 function calendarBandColour(type) {
   const colours = {
-    "Personal Time": "#C88933",
-    "Potential Job (Unconfirmed)": "#9B6B2F",
-    "Other Work": "#008898",
+    "Personal Time": "#8E6FA8",
+    "Potential Job (Unconfirmed)": "#C88933",
+    "Other Work": "#3C7A89",
     "Booked Job": "#01717F",
-    "Quote Visit": "#006878",
-    "Invoice Due": "#293E48",
-    Reminder: "#607D86",
-    Other: "#A2CACE"
+    "Quote Visit": "#4F9EA8",
+    "Invoice Due": "#C95252",
+    Reminder: "#5E6F7B",
+    Other: "#90A8AE"
   };
   return colours[type] || "#008898";
 }
@@ -1359,12 +1417,12 @@ function DatabaseInvoices({ data, setSelectedClientId, setSelectedQuoteId, setAc
         h("div", null, h("h3", { className: "text-lg text-slate-900" }, `${invoice.invoiceReference} · ${displayName(client)}`), h("p", { className: "mt-1 text-sm text-slate-500" }, client?.address || "Address not set")),
         h("span", { className: "rounded-full bg-[#293E48] px-3 py-1 text-xs text-white" }, invoice.invoiceStatus === "Invoice Due" ? "Unpaid" : invoice.invoiceStatus)
       ),
-      h("div", { className: "mt-4 grid grid-cols-2 gap-3" },
-        h(InfoTile, { label: "Invoice Date", value: shortDate(invoice.invoiceDate) }),
-        h(InfoTile, { label: "Due Date", value: shortDate(invoice.paymentDueDate) }),
-        h(InfoTile, { label: "Total", value: money(invoice.jobTotal) }),
-        h(InfoTile, { label: "Amount Paid", value: money(invoice.depositPaid) }),
-        h(InfoTile, { label: "Outstanding", value: money(invoice.balanceDue) })
+      h("div", { className: "auty-financial-list mt-4" },
+        h(FinancialRow, { label: "Invoice date", value: shortDate(invoice.invoiceDate) }),
+        h(FinancialRow, { label: "Payment due", value: shortDate(invoice.paymentDueDate), accent: true }),
+        h(FinancialRow, { label: "Amount paid", value: money(invoice.depositPaid) }),
+        h(FinancialRow, { label: "Outstanding", value: money(invoice.balanceDue), warning: Number(invoice.balanceDue) > 0 }),
+        h(FinancialRow, { label: "Invoice total", value: money(invoice.jobTotal), total: true })
       ),
       h(PaymentChaseButtons, { invoice, client, settings: data.settings }),
       h("button", { type: "button", onClick: () => { setSelectedClientId(invoice.clientId); setSelectedQuoteId(invoice.quoteId); setActiveTab("Quoter"); setJobTab("Invoice Generator"); }, className: "mt-3 w-full rounded-full bg-[#01717F] px-4 py-2 text-sm text-white" }, "Open Invoice")
@@ -1382,10 +1440,11 @@ function DatabaseQuotes({ data, setSelectedClientId, setSelectedQuoteId, setActi
         h("div", null, h("h3", { className: "text-lg text-slate-900" }, `${quote.quoteReference} · ${displayName(client)}`), h("p", { className: "mt-1 text-sm text-slate-500" }, client?.address || "Address not set")),
         h("span", { className: "rounded-full bg-[#C88933] px-3 py-1 text-xs text-white" }, status)
       ),
-      h("div", { className: "mt-4 grid grid-cols-2 gap-3" },
-        h(InfoTile, { label: "Quote Date", value: shortDate(quote.quoteDate) }),
-        h(InfoTile, { label: "Quote Total", value: money(quote.totalAmount) }),
-        h(InfoTile, { label: "Deposit", value: money(quote.depositAmount) })
+      h("div", { className: "auty-financial-list mt-4" },
+        h(FinancialRow, { label: "Quote date", value: shortDate(quote.quoteDate) }),
+        h(FinancialRow, { label: "Proposed start", value: shortDate(quote.proposedStartDate), accent: true }),
+        h(FinancialRow, { label: "Deposit due", value: money(quote.depositAmount) }),
+        h(FinancialRow, { label: "Quote total", value: money(quote.totalAmount), total: true })
       ),
       h("button", { type: "button", onClick: () => { setSelectedClientId(quote.clientId); setSelectedQuoteId(quote.quoteId); setActiveTab("Quoter"); setJobTab("Job Overview"); }, className: "mt-4 w-full rounded-full bg-[#01717F] px-4 py-2 text-sm text-white" }, "Open Quote")
     );
@@ -1792,6 +1851,7 @@ function JobOverviewPage({ data, selectedClient, selectedQuote, upsert, removeIt
       h("div", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
         h("h3", { className: "text-lg font-black text-slate-900" }, "Notes and Payment"),
         h("div", { className: "mt-4 grid gap-4 lg:grid-cols-2" },
+          h(Field, { label: "Quote Date", value: selectedQuote.quoteDate, type: "date", onChange: (value) => updateQuote({ quoteDate: value }) }),
           h(Field, { label: "Proposed Start Date", value: selectedQuote.proposedStartDate, type: "date", onChange: (value) => updateQuote({ proposedStartDate: value }) }),
           h(Field, { label: "Quote Status", value: selectedQuote.quoteStatus, options: QUOTE_STATUSES, onChange: (value) => updateQuote({ quoteStatus: value }) }),
           h(Field, { label: "Overall Discount", value: selectedQuote.discountType, options: ["No Discount", "5%", "10%", "15%", "20%", "Custom"], onChange: (value) => updateQuote({ discountType: value, discountPercent: value === "Custom" || value === "No Discount" ? 0 : Number(value.replace("%", "")) }) }),
@@ -1822,6 +1882,10 @@ function JobOverviewPage({ data, selectedClient, selectedQuote, upsert, removeIt
           }, h("span", null, label), h("strong", { className: label === "Job total" ? "auty-emphasis" : "" }, money(value))))
         ),
         h("p", { className: "mt-4 text-sm text-white/72" }, `Estimated duration ${calc.duration} day(s) | Completion ${shortDate(calc.completionDate)}`),
+        h("div", { className: "auty-document-thanks mt-4" },
+          h("p", null, "Thank you for choosing Auty Decorating."),
+          h("strong", null, "Kurtis · Auty Decorating")
+        ),
         h(ActionButton, { label: "Generate Quote PDF", onClick: () => generatePdf("quote", selectedQuote), icon: Download, className: "mt-5 w-full" })
       )
     )
@@ -1867,6 +1931,18 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
     }
     upsert("invoices", invoice, "invoiceId");
     await generatePdf("invoice", quote, invoice);
+  };
+
+  const saveInvoiceChanges = () => {
+    const invoice = { ...draftInvoice, jobTotal: calc.total, balanceDue: Math.max(0, calc.total - Number(draftInvoice.depositPaid)) };
+    const errors = validateInvoice(invoice, quote, data.rooms, data.settings);
+    if (errors.length) {
+      setNotice(formatErrors(errors));
+      return;
+    }
+    upsert("invoices", invoice, "invoiceId");
+    setDraftInvoice(invoice);
+    setNotice("Invoice changes saved");
   };
 
   const deleteInvoice = (invoice) => {
@@ -1932,8 +2008,15 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
         h("div", { className: "mt-4 space-y-3 text-sm" },
           [["Final job total", calc.total], ["Deposit paid", draftInvoice.depositPaid], ["Remaining balance", draftInvoice.balanceDue], ["VAT breakdown", calc.vatAmount]].map(([label, value]) => h("div", { key: label, className: classNames("flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3", label === "Final job total" ? "auty-invoice-grand-total" : "") }, h("span", null, label), h("strong", null, money(value))))
         ),
-        h("p", { className: "mt-4 text-sm text-white/72" }, `Payment due by ${shortDate(draftInvoice.paymentDueDate)}`),
-        h(ActionButton, { label: "Generate Final Invoice", onClick: saveAndGenerate, icon: FileText, variant: "gold", className: "mt-5 w-full" })
+        h("p", { className: "auty-payment-date mt-4" }, `Payment due by ${shortDate(draftInvoice.paymentDueDate)}`),
+        h("div", { className: "auty-document-thanks mt-4" },
+          h("p", null, "Thank you for choosing Auty Decorating."),
+          h("strong", null, "Kurtis · Auty Decorating")
+        ),
+        h("div", { className: "mt-5 grid gap-2" },
+          h(ActionButton, { label: "Save Invoice Changes", onClick: saveInvoiceChanges, icon: Save, variant: "soft", className: "w-full" }),
+          h(ActionButton, { label: "Generate Final Invoice", onClick: saveAndGenerate, icon: FileText, variant: "gold", className: "w-full" })
+        )
       ),
       h("div", { className: "rounded-[30px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.48))] p-5 shadow-[0_22px_55px_rgba(24,34,48,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl" },
         h("h3", { className: "text-lg font-black text-slate-900" }, "Past Invoices"),
@@ -2288,6 +2371,13 @@ function InfoTile({ label, value }) {
   return h("div", { className: "rounded-[22px] bg-[linear-gradient(135deg,#f5faff,#fff8ef)] px-4 py-4 shadow-sm" },
     h("p", { className: "text-xs font-bold uppercase tracking-[0.18em] text-slate-400" }, label),
     h("p", { className: "mt-2 text-sm font-semibold text-slate-700" }, value)
+  );
+}
+
+function FinancialRow({ label, value, total = false, accent = false, warning = false }) {
+  return h("div", { className: classNames("auty-financial-row", total ? "auty-financial-row--total" : "", accent ? "auty-financial-row--accent" : "", warning ? "auty-financial-row--warning" : "") },
+    h("span", null, label),
+    h("strong", null, value)
   );
 }
 
