@@ -5,11 +5,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateClient(client, { requireAddress = false } = {}) {
   const errors = [];
-  if (!client?.surname?.trim()) errors.push("Client surname is required.");
-  if (!client?.telephone?.trim() && !client?.email?.trim()) errors.push("Add either a telephone number or an email address.");
+  if (!client?.surname?.trim() && !client?.givenName?.trim() && !client?.name?.trim()) errors.push("Add the client’s surname or given name.");
   if (client?.email?.trim() && !EMAIL_RE.test(client.email.trim())) errors.push("Enter a valid email address.");
-  // Address is useful, but no longer blocks quote or invoice generation.
-  // A client can be quoted or invoiced with either telephone or email contact details.
+  // Contact details and address are useful, but a valid client name is the only
+  // requirement for saving a contact. Individual workflows can require more.
   return errors;
 }
 

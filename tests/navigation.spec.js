@@ -39,6 +39,7 @@ test("the refreshed workspace navigation and key controls work", async ({ page }
 
   await page.getByLabel("Calendar", { exact: true }).click();
   await expect(page.getByText("Business Calendar")).toBeVisible();
+  await expect(page.locator("#calendar-booking-form > button")).toHaveAttribute("aria-expanded", "false");
   await page.getByLabel("Open Settings tab").click();
   await expect(page.getByRole("button", { name: "Back to Calendar" })).toBeVisible();
   await page.getByRole("button", { name: "Back to Calendar" }).click();
@@ -106,6 +107,10 @@ test("existing-client quoter flow reveals room options only after selection", as
   await page.getByRole("button", { name: "Complete Room" }).click();
   await page.getByRole("button", { name: "Go to Job Overview" }).click();
   await expect(page.getByText("Materials total").locator("..")).toContainText("£125.50");
+  const savedAfterRoom = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  const savedQuoteAfterRoom = savedAfterRoom.quotes.find((quote) => quote.clientId === "client-existing");
+  expect(savedQuoteAfterRoom.totalAmount).toBeGreaterThan(125.5);
+  expect(savedQuoteAfterRoom.depositAmount).toBeGreaterThan(0);
   await page.getByLabel("Quote Date").fill("2026-07-01");
   await page.getByLabel("Proposed Start Date").fill("2026-07-08");
   const quoteDownloadPromise = page.waitForEvent("download");
@@ -159,6 +164,7 @@ test("reminders can be created and surfaced on the dashboard", async ({ page }) 
   await page.goto("/?preview");
   await expect(page.getByText("Welcome Back")).toBeHidden({ timeout: 5000 });
   await page.getByLabel("Calendar", { exact: true }).click();
+  await page.locator("#calendar-booking-form > button").click();
   await page.getByLabel("Title").fill("Order hallway paint");
   await page.getByLabel("Type").selectOption("Reminder");
   await expect(page.getByLabel("Reminder Category")).toBeVisible();
@@ -188,32 +194,100 @@ test("client database views and multi-day calendar bands are available", async (
   await expect(page.locator('.auty-calendar-cell[data-band="middle"]')).toHaveCount(1);
   await expect(page.locator('.auty-calendar-cell[data-band="end"]')).toHaveCount(1);
   await page.getByLabel("Clients", { exact: true }).click();
-  await page.getByRole("button", { name: "Invoices", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "AUTY-INV-DB · Robin Lane" })).toBeVisible();
+  await page.getByRole("button", { name: "Invoice Bank", exact: true }).click();
+  const invoiceCard = page.getByRole("button", { name: /AUTY-INV-DB · Robin Lane/ });
+  await expect(invoiceCard).toHaveAttribute("aria-expanded", "false");
+  await invoiceCard.click();
+  await expect(invoiceCard).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("button", { name: "Chase Payment" })).toBeVisible();
   const chase = page.getByRole("button", { name: "Chase Payment" });
   await expect(chase).toHaveAttribute("data-email-subject", "Payment reminder for invoice AUTY-INV-DB");
   await expect(chase).toHaveAttribute("data-email-body", /Hi Robin Lane,[\s\S]*£400.00[\s\S]*AUTY Decorating/);
-  await page.getByRole("button", { name: "Quotes Database" }).click();
-  await expect(page.getByRole("heading", { name: "AUTY-Q-DB · Robin Lane" })).toBeVisible();
+  await page.getByRole("button", { name: "Mark as Paid", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Mark as Paid", exact: true })).toHaveAttribute("aria-pressed", "true");
+  const paidWorkspace = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  const paidInvoice = paidWorkspace.invoices.find((invoice) => invoice.invoiceId === "invoice-db");
+  expect(paidInvoice.invoiceStatus).toBe("Paid");
+  expect(paidInvoice.depositPaid).toBe(500);
+  expect(paidInvoice.balanceDue).toBe(0);
+  await expect(page.getByRole("button", { name: "Chase Payment" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Quotes Bank" }).click();
+  const quoteCard = page.getByRole("button", { name: /AUTY-Q-DB · Robin Lane/ });
+  await expect(quoteCard).toHaveAttribute("aria-expanded", "false");
+  await quoteCard.click();
+  await expect(quoteCard).toHaveAttribute("aria-expanded", "true");
 });
 
 test("contacts can be added, edited, saved, loaded, and deleted", async ({ page }) => {
   await page.goto("/?preview");
   await expect(page.getByText("Welcome Back")).toBeHidden({ timeout: 5000 });
   await page.getByLabel("Clients", { exact: true }).click();
+  const clientsBefore = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).clients.length, STORAGE_KEY);
   await page.getByRole("button", { name: "Add Client" }).click();
+  const clientsWhileDrafting = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).clients.length, STORAGE_KEY);
+  expect(clientsWhileDrafting).toBe(clientsBefore);
   await page.getByLabel("Surname").fill("North");
   await page.getByLabel("Given Name").fill("Sam");
   await page.getByLabel("Phone Number").fill("07222222222");
-  await page.getByLabel("E-Mail").fill("sam@example.com");
+  await page.getByLabel("Email").fill("sam@example.com");
   await page.getByLabel("Address").fill("15 Bridge Street");
-  await page.getByLabel("Save client").click();
+  await page.getByRole("button", { name: "Save Client", exact: true }).click();
   await expect(page.getByText("North", { exact: true })).toBeVisible();
   await page.getByLabel("Open client details").click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Delete Client" }).click();
   await expect(page.getByText("North", { exact: true })).toHaveCount(0);
+});
+
+test("shared selects and dates remain readable and persist their values", async ({ page }) => {
+  await page.goto("/?preview");
+  await expect(page.getByText("Welcome Back")).toBeHidden({ timeout: 5000 });
+  await page.getByLabel("Open Settings tab").click();
+  const theme = page.getByLabel("Theme Mode");
+  await expect(theme).toHaveCSS("color-scheme", "light");
+  await theme.selectOption("Dark");
+  await expect(theme).toHaveValue("Dark");
+  await theme.selectOption("Light");
+  await page.getByRole("button", { name: "Back to Dashboard" }).click();
+  await page.getByLabel("Calendar", { exact: true }).click();
+  await page.locator("#calendar-booking-form > button").click();
+  await page.getByLabel("Title").fill("Date validation");
+  await page.getByLabel("Start Date").fill("2026-07-20");
+  await page.getByLabel("End Date").fill("2026-07-19");
+  await page.getByRole("button", { name: "Save Calendar Entry" }).click();
+  await expect(page.getByText("End date must be the same as or after the start date")).toBeVisible();
+  await page.getByLabel("End Date").fill("2026-07-21");
+  await page.getByRole("button", { name: "Save Calendar Entry" }).click();
+  const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  expect(stored.calendarEntries.some((entry) => entry.startDate === "2026-07-20" && entry.endDate === "2026-07-21")).toBeTruthy();
+});
+
+test("photos can be assigned, uploaded, listed, and removed", async ({ page }) => {
+  const workspace = {
+    ...initialState,
+    clients: [{ clientId: "client-photo", givenName: "Avery", surname: "Stone", telephone: "07000000001", email: "avery@example.com", address: "3 Garden Lane" }],
+    quotes: [{ quoteId: "quote-photo", clientId: "client-photo", quoteReference: "AUTY-Q-PHOTO", quoteDate: "2026-06-13", quoteStatus: "Draft", depositType: "50%", roomIds: ["room-photo"], discountType: "No Discount", vatEnabled: false }],
+    rooms: [{ roomId: "room-photo", quoteId: "quote-photo", roomName: "Living Room", jobType: "Painting", estimatedDays: 1, finalRoomPrice: 150, materialsCost: 0, includeMaterials: "No" }]
+  };
+  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), { key: STORAGE_KEY, value: JSON.stringify(workspace) });
+  await page.goto("/?preview");
+  await expect(page.getByText("Welcome Back")).toBeHidden({ timeout: 5000 });
+  await page.getByLabel("Quoter", { exact: true }).click();
+  await page.getByRole("button", { name: "Photos & Attachments" }).click();
+  await page.getByLabel("Assigned Client").selectOption("client-photo");
+  await page.getByLabel("Assigned Quote / Job").selectOption("quote-photo");
+  await page.getByLabel("Assigned Room").selectOption("room-photo");
+  await page.getByLabel("Photo Type").selectOption("During");
+  await page.getByLabel("Caption").fill("Freshly painted wall");
+  await page.locator('input[type="file"][accept="image/*"]').setInputFiles({
+    name: "wall.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z8WQAAAAASUVORK5CYII=", "base64")
+  });
+  await expect(page.getByText("Freshly painted wall", { exact: true })).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Remove photo" }).click();
+  await expect(page.getByText("Freshly painted wall", { exact: true })).toHaveCount(0);
 });
 
 test("dashboard priorities and invoice payment statuses are actionable", async ({ page }) => {
@@ -253,8 +327,12 @@ test("dashboard priorities and invoice payment statuses are actionable", async (
 
   await page.getByLabel("Quoter", { exact: true }).click();
   await page.getByRole("button", { name: "Invoice Generator" }).click();
+  await expect(page.getByText("No client selected", { exact: true })).toBeVisible();
+  await page.getByLabel("Client To Invoice").selectOption("client-test");
+  await page.getByLabel("Quote To Invoice").selectOption("quote-test");
   await expect(page.locator('[data-invoice-generator-form="true"]').getByRole("button", { name: "Chase Payment" })).toHaveCount(0);
   const savedInvoice = page.locator('[data-invoice-id="invoice-test"]');
+  await savedInvoice.getByRole("button", { name: "Open invoice AUTY-INV-001 details" }).click();
   await savedInvoice.getByRole("button", { name: "Paid", exact: true }).click();
   await expect(savedInvoice.getByRole("button", { name: "Paid", exact: true })).toHaveAttribute("aria-pressed", "true");
 });

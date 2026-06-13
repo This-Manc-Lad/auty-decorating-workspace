@@ -192,11 +192,40 @@ button.is-active :where(*) {
 .auty-app-shell input,
 .auty-app-shell select,
 .auty-app-shell textarea {
+  color-scheme: light !important;
+  color: #17232d !important;
+  -webkit-text-fill-color: #17232d;
   border-color: rgba(255, 255, 255, 0.78) !important;
   background: rgba(255, 255, 255, 0.52) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 9px 24px rgba(17, 41, 54, 0.06);
   backdrop-filter: blur(18px);
   transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.auty-app-shell select {
+  appearance: auto;
+  -webkit-appearance: menulist;
+  forced-color-adjust: auto;
+}
+
+.auty-app-shell select option,
+.auty-app-shell select optgroup {
+  color: #17232d !important;
+  background-color: #ffffff !important;
+  -webkit-text-fill-color: #17232d;
+}
+
+.auty-app-shell input[type="date"],
+.auty-app-shell input[type="time"] {
+  min-height: 48px;
+  color-scheme: light !important;
+}
+
+.auty-app-shell input[type="date"]::-webkit-calendar-picker-indicator,
+.auty-app-shell input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.72;
+  filter: none;
 }
 
 .auty-app-shell input:focus,

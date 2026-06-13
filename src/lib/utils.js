@@ -2,7 +2,8 @@ import { ADJUSTMENT_OPTIONS, DAY_RATE, LEGACY_KEYS, OTHER_FEATURE_KEYS, STORAGE_
 
 export const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 export const money = (value) => `£${number(value).toFixed(2)}`;
-export const today = () => new Date().toISOString().slice(0, 10);
+export const localDateStamp = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+export const today = () => localDateStamp(new Date());
 export const uid = (prefix) => `${prefix}-${crypto.randomUUID()}`;
 export const slug = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 export const classNames = (...parts) => parts.filter(Boolean).join(" ");
@@ -501,7 +502,7 @@ export function addDays(date, days) {
   if (!date) return "";
   const next = new Date(`${date}T12:00:00`);
   next.setDate(next.getDate() + Math.max(0, Math.ceil(number(days)) - 1));
-  return next.toISOString().slice(0, 10);
+  return localDateStamp(next);
 }
 
 export function splitName(name = "") {

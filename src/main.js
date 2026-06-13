@@ -68,6 +68,7 @@ import {
   displayName,
   generatedRoomDescription,
   loadLegacyWorkspace,
+  localDateStamp,
   money,
   monthNames,
   monthStamp,
@@ -131,6 +132,7 @@ function App() {
   const [jobTab, setJobTab] = useState(JOB_TABS[0]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedQuoteId, setSelectedQuoteId] = useState("");
+  const [newClientRequest, setNewClientRequest] = useState(0);
   const [settingsReturnTab, setSettingsReturnTab] = useState(MAIN_TABS[0]);
   const [showWelcome, setShowWelcome] = useState(() => !isSupabaseConfigured());
   const [compactHeader, setCompactHeader] = useState(false);
@@ -246,8 +248,8 @@ function App() {
     return client;
   };
 
-  const saveQuoteTotals = (quote) => {
-    const calc = calculateQuote(quote, data.rooms, data.settings);
+  const saveQuoteTotals = (quote, roomsOverride = data.rooms) => {
+    const calc = calculateQuote(quote, roomsOverride, data.settings);
     const updated = {
       ...quote,
       estimatedDuration: calc.duration,
@@ -262,8 +264,8 @@ function App() {
 
   const createQuote = (clientId = selectedClient?.clientId || "") => {
     if (!clientId) {
-      const created = createClient();
-      clientId = created.clientId;
+      setNotice("Choose or save a client before starting a quote");
+      return null;
     }
     const quote = {
       quoteId: uid("quote"),
@@ -328,10 +330,16 @@ function App() {
     createQuote,
     selectedClient,
     selectedQuote,
+    selectedQuoteId,
     setSelectedClientId,
     setSelectedQuoteId,
     setActiveTab,
     setJobTab,
+    newClientRequest,
+    requestNewClient: () => {
+      setNewClientRequest((current) => current + 1);
+      setActiveTab("Client Database");
+    },
     saveQuoteTotals,
     generatePdf,
     setNotice,
@@ -841,7 +849,7 @@ function FloatingNav({ activeTab, setActiveTab, darkMode }) {
   );
 }
 
-function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTab, setSelectedClientId, setSelectedQuoteId, setNotice }) {
+function DashboardPage({ data, requestNewClient, setActiveTab, setJobTab, setSelectedClientId, setSelectedQuoteId, setNotice }) {
   const date = today();
   const bookedJobs = data.calendarEntries
     .filter((entry) => entry.type === "Booked Job")
@@ -850,7 +858,10 @@ function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTa
   const todaysClient = data.clients.find((client) => client.clientId === todaysJob?.clientId);
   const todaysQuote = data.quotes.find((quote) => quote.quoteId === todaysJob?.quoteId);
   const outstandingQuotes = data.quotes.filter((quote) => ["Sent", "Awaiting Approval"].includes(quote.quoteStatus)).slice(0, 4);
-  const unpaidInvoices = data.invoices.filter((invoice) => invoice.invoiceStatus !== "Paid").slice(0, 4);
+  const unpaidInvoices = data.invoices.filter((invoice) => {
+    const outstanding = Number(invoice.balanceDue ?? invoice.jobTotal ?? 0);
+    return outstanding > 0 && ["Unpaid", "Overdue", "Part-paid", "Part Paid", "Invoice Due", "Sent"].includes(invoice.invoiceStatus);
+  }).slice(0, 4);
   const reminders = data.calendarEntries.filter((entry) => entry.type === "Reminder" && (entry.reminderStatus || "Pending") === "Pending" && entry.startDate <= date && entry.endDate >= date).slice(0, 4);
   const upcomingJobs = bookedJobs.filter((entry) => entry.startDate > date).slice(0, 4);
 
@@ -937,7 +948,7 @@ function DashboardPage({ data, createClient, createQuote, setActiveTab, setJobTa
     h("section", { className: "rounded-[30px] border border-white/70 p-5" },
       h("div", { className: "flex items-center justify-between gap-3" },
         h("div", null, h("p", { className: "text-[11px] uppercase tracking-[0.24em] text-auty-gold" }, "Work Summary"), h("h3", { className: "mt-1 text-lg text-slate-900" }, "Your workspace at a glance")),
-        h("button", { type: "button", onClick: () => { createClient(); setActiveTab("Client Database"); }, className: "rounded-full bg-[#293E48] px-4 py-2 text-sm text-white" }, "New Client")
+        h("button", { type: "button", onClick: requestNewClient, className: "rounded-full bg-[#293E48] px-4 py-2 text-sm text-white" }, "New Client")
       ),
       h("div", { className: "mt-4 grid grid-cols-3 gap-3" },
         [["Jobs", bookedJobs.length, "#01717F"], ["Quotes", data.quotes.length, "#C88933"], ["Invoices", data.invoices.length, "#293E48"]].map(([label, value, colour]) => h("button", { key: label, type: "button", onClick: () => label === "Jobs" ? setActiveTab("Calendar") : label === "Quotes" ? (setActiveTab("Quoter"), setJobTab("Job Overview")) : (setActiveTab("Quoter"), setJobTab("Invoice Generator")), className: "rounded-[22px] border border-white/70 bg-white/34 p-4 text-left" },
@@ -963,6 +974,7 @@ function CalendarPage({ data, upsert, removeItem, setNotice }) {
   const [monthView, setMonthView] = useState(new Date());
   const [expandedDate, setExpandedDate] = useState("");
   const [showCalendarKey, setShowCalendarKey] = useState(false);
+  const [showBookingForm, setShowBookingForm] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState("");
   const [entry, setEntry] = useState({
     title: "",
@@ -992,6 +1004,10 @@ function CalendarPage({ data, upsert, removeItem, setNotice }) {
       setNotice("Title and start date are required");
       return;
     }
+    if (entry.endDate && entry.endDate < entry.startDate) {
+      setNotice("End date must be the same as or after the start date");
+      return;
+    }
     const savedEntry = {
       ...entry,
       title: calendarTitleWithType(entry.title, entry.type),
@@ -1005,6 +1021,7 @@ function CalendarPage({ data, upsert, removeItem, setNotice }) {
   };
 
   const editEntry = (entryItem) => {
+    setShowBookingForm(true);
     setEditingEntryId(entryItem.calendarEntryId);
     setEntry({
       ...entry,
@@ -1031,6 +1048,7 @@ function CalendarPage({ data, upsert, removeItem, setNotice }) {
   };
 
   const bookDate = (date) => {
+    setShowBookingForm(true);
     setEntry((current) => ({ ...current, startDate: date, endDate: date }));
     setNotice(`Booking form ready for ${shortDate(date)}`);
     window.requestAnimationFrame(() => {
@@ -1119,11 +1137,23 @@ function CalendarPage({ data, upsert, removeItem, setNotice }) {
     ),
     h("aside", { className: "space-y-4" },
       h("div", { id: "calendar-booking-form", className: "scroll-mt-28 rounded-[30px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.5))] p-5 shadow-[0_22px_55px_rgba(24,34,48,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl" },
-        h("div", { className: "flex items-center justify-between gap-3" },
-          h("h3", { className: "text-lg font-black text-slate-900" }, editingEntryId ? "Edit Booking" : "Add Booking"),
-          editingEntryId && h("span", { className: "rounded-full bg-[#C88933]/15 px-3 py-1 text-[11px] text-[#8B5E20]" }, "Editing saved entry")
+        h("button", {
+          type: "button",
+          "aria-expanded": showBookingForm,
+          "aria-controls": "calendar-booking-fields",
+          onClick: () => setShowBookingForm((current) => !current),
+          className: "flex w-full items-center justify-between gap-3 text-left"
+        },
+          h("span", null,
+            h("h3", { className: "block text-lg text-slate-900" }, editingEntryId ? "Edit Booking" : "Add Booking"),
+            h("span", { className: "mt-1 block text-xs text-slate-500" }, showBookingForm ? "Tap to close the booking form" : "Tap to add or edit a calendar entry")
+          ),
+          h("span", { className: "flex items-center gap-2" },
+            editingEntryId && h("span", { className: "rounded-full bg-[#C88933]/15 px-3 py-1 text-[11px] text-[#8B5E20]" }, "Editing"),
+            h(ChevronDown, { size: 20, className: classNames("transition-transform duration-300", showBookingForm ? "rotate-180" : "") })
+          )
         ),
-        h("div", { className: "mt-4 space-y-3" },
+        showBookingForm && h("div", { id: "calendar-booking-fields", className: "auty-expand-panel mt-4 space-y-3" },
           h(Field, { id: "calendar-booking-title", label: "Title", value: entry.title, onChange: (value) => setEntry({ ...entry, title: value }) }),
           h(Field, { label: "Type", value: entry.type, options: CALENDAR_TYPES, onChange: (value) => setEntry({ ...entry, type: value, title: calendarTitleWithType(entry.title, value) }) }),
           h(Field, { label: "Start Date", value: entry.startDate, type: "date", onChange: (value) => setEntry({ ...entry, startDate: value }) }),
@@ -1223,7 +1253,7 @@ function buildMonthGrid(monthView, entries) {
   for (let index = 0; index < 42; index += 1) {
     const day = new Date(start);
     day.setDate(start.getDate() + index);
-    const stamp = day.toISOString().slice(0, 10);
+    const stamp = localDateStamp(day);
     days.push({
       date: stamp,
       inMonth: day.getMonth() === month && day.getDate() <= last.getDate(),
@@ -1233,16 +1263,42 @@ function buildMonthGrid(monthView, entries) {
   return days;
 }
 
-function ClientDatabasePage({ data, upsert, removeItem, createClient, createQuote, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab, setNotice }) {
+function ClientDatabasePage({ data, upsert, removeItem, createQuote, newClientRequest, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab, setNotice }) {
   const [query, setQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [databaseSection, setDatabaseSection] = useState("Contacts");
   const [openId, setOpenId] = useState("");
   const [editId, setEditId] = useState("");
   const [drafts, setDrafts] = useState({});
+  const [newClientDraft, setNewClientDraft] = useState(null);
+
+  const beginNewClient = () => {
+    setNewClientDraft({
+      clientId: uid("client"),
+      surname: "",
+      givenName: "",
+      name: "",
+      address: "",
+      telephone: "",
+      email: "",
+      notes: "",
+      createdDate: today()
+    });
+    setDatabaseSection("Contacts");
+    setOpenId("");
+    setEditId("");
+  };
+
+  useEffect(() => {
+    if (newClientRequest > 0) beginNewClient();
+  }, [newClientRequest]);
 
   const clients = [...data.clients]
     .sort((left, right) => databaseName(left).localeCompare(databaseName(right)))
     .filter((client) => {
+      const quotes = data.quotes.filter((quote) => quote.clientId === client.clientId);
+      const invoices = data.invoices.filter((invoice) => invoice.clientId === client.clientId);
       const hay = [
         client.surname,
         client.givenName,
@@ -1250,11 +1306,24 @@ function ClientDatabasePage({ data, upsert, removeItem, createClient, createQuot
         client.telephone,
         client.email,
         client.notes,
-        ...data.quotes.filter((quote) => quote.clientId === client.clientId).map((quote) => quote.quoteReference),
-        ...data.invoices.filter((invoice) => invoice.clientId === client.clientId).map((invoice) => invoice.invoiceReference)
+        ...quotes.map((quote) => quote.quoteReference),
+        ...invoices.map((invoice) => invoice.invoiceReference)
       ].join(" ").toLowerCase();
-      return hay.includes(query.toLowerCase());
+      const dates = [client.createdDate, ...quotes.flatMap((quote) => [quote.quoteDate, quote.proposedStartDate]), ...invoices.flatMap((invoice) => [invoice.invoiceDate, invoice.paymentDueDate])];
+      const statuses = [...quotes.map((quote) => normaliseRecordStatus(quote.quoteStatus)), ...invoices.map((invoice) => normaliseRecordStatus(invoice.invoiceStatus))];
+      return hay.includes(query.toLowerCase())
+        && (!dateFilter || dates.includes(dateFilter))
+        && (!statusFilter || statuses.includes(statusFilter));
     });
+
+  const statusOptions = databaseSection === "Quotes"
+    ? Array.from(new Set(data.quotes.map((quote) => normaliseRecordStatus(quote.quoteStatus))))
+    : databaseSection === "Invoices"
+      ? Array.from(new Set(data.invoices.map((invoice) => normaliseRecordStatus(invoice.invoiceStatus))))
+      : Array.from(new Set([
+        ...data.quotes.map((quote) => normaliseRecordStatus(quote.quoteStatus)),
+        ...data.invoices.map((invoice) => normaliseRecordStatus(invoice.invoiceStatus))
+      ]));
 
   const beginEdit = (client) => {
     setEditId(client.clientId);
@@ -1283,6 +1352,20 @@ function ClientDatabasePage({ data, upsert, removeItem, createClient, createQuot
     setNotice("Client saved");
   };
 
+  const saveNewClient = () => {
+    if (!newClientDraft) return;
+    const errors = validateClient(newClientDraft);
+    if (errors.length) {
+      setNotice(formatErrors(errors));
+      return;
+    }
+    const saved = { ...newClientDraft, name: displayName(newClientDraft) };
+    upsert("clients", saved, "clientId");
+    setSelectedClientId(saved.clientId);
+    setNewClientDraft(null);
+    setNotice("Client saved successfully");
+  };
+
   const deleteClient = (client) => {
     const ok = window.confirm(`Delete ${displayName(client)} and all related quotes, rooms, invoices, photos, and calendar items? This cannot be undone.`);
     if (!ok) return;
@@ -1305,15 +1388,52 @@ function ClientDatabasePage({ data, upsert, removeItem, createClient, createQuot
             h("input", {
               value: query,
               onChange: (event) => setQuery(event.target.value),
-              placeholder: "Search surname, given name, address, phone, email, notes or refs",
+              "aria-label": "Filter by name or reference",
+              placeholder: "Filter by name, address or reference",
               className: "w-full bg-transparent text-sm outline-none"
             })
           )
         ),
-        h(ActionButton, { label: "Add Client", onClick: () => { const client = createClient(); beginEdit(client); }, icon: UserPlus })
+        h(ActionButton, { label: "Add Client", onClick: beginNewClient, icon: UserPlus })
       ),
-      h("div", { className: "mt-4 grid grid-cols-3 gap-2 rounded-[22px] border border-white/70 bg-white/28 p-1.5" },
-        ["Contacts", "Invoices", "Quotes Database"].map((section) => h("button", { key: section, type: "button", "aria-pressed": databaseSection === section, onClick: () => setDatabaseSection(section), className: classNames("rounded-[18px] px-2 py-3 text-xs sm:text-sm", databaseSection === section ? "bg-[#01717F] text-white" : "text-slate-600 hover:bg-white/60") }, section))
+      h("div", { className: "auty-bank-tabs mt-4 grid grid-cols-3 gap-2 rounded-[22px] border border-white/70 bg-white/28 p-1.5" },
+        [
+          { key: "Contacts", label: "Contacts" },
+          { key: "Quotes", label: "Quotes Bank" },
+          { key: "Invoices", label: "Invoice Bank" }
+        ].map((section) => h("button", {
+          key: section.key,
+          type: "button",
+          "aria-pressed": databaseSection === section.key,
+          onClick: () => { setDatabaseSection(section.key); setStatusFilter(""); setOpenId(""); },
+          className: classNames("rounded-[18px] px-2 py-3 text-xs transition sm:text-sm", databaseSection === section.key ? "bg-[#C88933] text-white shadow-md" : "text-slate-600 hover:bg-white/60")
+        }, section.label))
+      ),
+      h("div", { className: "mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]" },
+        h(Field, { label: "Filter by date", value: dateFilter, type: "date", onChange: setDateFilter }),
+        h(Field, { label: "Filter by status", value: statusFilter, options: [{ value: "", label: "All statuses" }, ...statusOptions], onChange: setStatusFilter }),
+        h("button", { type: "button", onClick: () => { setQuery(""); setDateFilter(""); setStatusFilter(""); }, className: "self-end rounded-[20px] border border-white/80 bg-white/45 px-4 py-3 text-sm text-slate-700 transition hover:bg-white/75" }, "Clear filters")
+      )
+    ),
+    newClientDraft && h("section", { className: "rounded-[30px] border border-white/70 bg-white/62 p-5" },
+      h("div", { className: "flex flex-wrap items-start justify-between gap-3" },
+        h("div", null,
+          h("p", { className: "text-[11px] uppercase tracking-[0.24em] text-auty-gold" }, "New Contact"),
+          h("h2", { className: "mt-1 text-xl text-slate-900" }, "Add client details")
+        ),
+        h("button", { type: "button", onClick: () => setNewClientDraft(null), className: "rounded-full border border-white/80 bg-white/50 px-4 py-2 text-sm text-slate-700" }, "Cancel")
+      ),
+      h("div", { className: "mt-4 grid gap-4 sm:grid-cols-2" },
+        h(Field, { label: "Surname", value: newClientDraft.surname, onChange: (value) => setNewClientDraft({ ...newClientDraft, surname: value }) }),
+        h(Field, { label: "Given Name", value: newClientDraft.givenName, onChange: (value) => setNewClientDraft({ ...newClientDraft, givenName: value }) }),
+        h(Field, { label: "Phone Number", value: newClientDraft.telephone, type: "tel", onChange: (value) => setNewClientDraft({ ...newClientDraft, telephone: value }) }),
+        h(Field, { label: "Email", value: newClientDraft.email, type: "email", onChange: (value) => setNewClientDraft({ ...newClientDraft, email: value }) }),
+        h("div", { className: "sm:col-span-2" }, h(Field, { label: "Address", value: newClientDraft.address, textarea: true, onChange: (value) => setNewClientDraft({ ...newClientDraft, address: value }) })),
+        h("div", { className: "sm:col-span-2" }, h(Field, { label: "Notes", value: newClientDraft.notes, textarea: true, onChange: (value) => setNewClientDraft({ ...newClientDraft, notes: value }) }))
+      ),
+      h("div", { className: "mt-4 grid gap-2 sm:grid-cols-2" },
+        h(ActionButton, { label: "Save Client", onClick: saveNewClient, icon: Save, className: "w-full" }),
+        h(ActionButton, { label: "Cancel", onClick: () => setNewClientDraft(null), icon: X, variant: "soft", className: "w-full" })
       )
     ),
     databaseSection === "Contacts" ? (clients.length ? h("div", { className: "space-y-3" },
@@ -1436,20 +1556,47 @@ function ClientDatabasePage({ data, upsert, removeItem, createClient, createQuot
       })
     ) : h(EmptyState, { title: "No clients found", body: "Add a client or change the search to see more results." }))
       : databaseSection === "Invoices"
-        ? h(DatabaseInvoices, { data, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab })
-        : h(DatabaseQuotes, { data, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab })
+        ? h(DatabaseInvoices, { data, query, dateFilter, statusFilter, upsert, setNotice, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab })
+        : h(DatabaseQuotes, { data, query, dateFilter, statusFilter, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab })
   );
 }
 
-function DatabaseInvoices({ data, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab }) {
-  if (!data.invoices.length) return h(EmptyState, { title: "No invoices saved", body: "Generated invoices will appear here, linked to their client and quote." });
-  return h("div", { className: "grid gap-4 lg:grid-cols-2" }, data.invoices.map((invoice) => {
+function DatabaseInvoices({ data, query, dateFilter, statusFilter, upsert, setNotice, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab }) {
+  const [openInvoiceId, setOpenInvoiceId] = useState("");
+  const updateInvoiceStatus = (invoice, nextStatus) => {
+    const total = Number(invoice.jobTotal || 0);
+    const previousStatus = normaliseRecordStatus(invoice.invoiceStatus);
+    const amountPaid = nextStatus === "Paid"
+      ? total
+      : nextStatus === "Unpaid" && previousStatus === "Paid"
+        ? 0
+        : Number(invoice.depositPaid || 0);
+    upsert("invoices", {
+      ...invoice,
+      invoiceStatus: nextStatus,
+      depositPaid: amountPaid,
+      balanceDue: Math.max(0, total - amountPaid)
+    }, "invoiceId");
+    setNotice(`Invoice marked ${nextStatus.toLowerCase()}`);
+  };
+  const invoices = data.invoices.filter((invoice) => {
     const client = data.clients.find((entry) => entry.clientId === invoice.clientId);
+    const hay = `${invoice.invoiceReference} ${displayName(client)} ${client?.address || ""}`.toLowerCase();
+    return hay.includes(query.toLowerCase())
+      && (!dateFilter || invoice.invoiceDate === dateFilter || invoice.paymentDueDate === dateFilter)
+      && (!statusFilter || normaliseRecordStatus(invoice.invoiceStatus) === statusFilter);
+  });
+  if (!invoices.length) return h(EmptyState, { title: "No invoices found", body: "Change the filters or generate an invoice to see it here." });
+  return h("div", { className: "grid gap-4 lg:grid-cols-2" }, invoices.map((invoice) => {
+    const client = data.clients.find((entry) => entry.clientId === invoice.clientId);
+    const open = openInvoiceId === invoice.invoiceId;
+    const status = normaliseRecordStatus(invoice.invoiceStatus);
     return h("article", { key: invoice.invoiceId, className: "rounded-[28px] border border-white/70 bg-white/34 p-5" },
-      h("div", { className: "flex items-start justify-between gap-3" },
-        h("div", null, h("h3", { className: "text-lg text-slate-900" }, `${invoice.invoiceReference} · ${displayName(client)}`), h("p", { className: "mt-1 text-sm text-slate-500" }, client?.address || "Address not set")),
-        h("span", { className: "rounded-full bg-[#293E48] px-3 py-1 text-xs text-white" }, invoice.invoiceStatus === "Invoice Due" ? "Unpaid" : invoice.invoiceStatus)
+      h("button", { type: "button", "aria-expanded": open, onClick: () => setOpenInvoiceId(open ? "" : invoice.invoiceId), className: "flex w-full items-start justify-between gap-3 text-left" },
+        h("span", null, h("span", { className: "block text-lg text-slate-900" }, `${invoice.invoiceReference} · ${displayName(client)}`), h("span", { className: "mt-1 block text-sm text-slate-500" }, client?.address || "Address not set")),
+        h("span", { className: "flex items-center gap-2" }, h(RecordStatusPill, { status }), h(ChevronDown, { size: 18, className: classNames("transition-transform", open ? "rotate-180" : "") }))
       ),
+      open && h("div", { className: "auty-expand-panel" },
       h("div", { className: "auty-financial-list mt-4" },
         h(FinancialRow, { label: "Invoice date", value: shortDate(invoice.invoiceDate) }),
         h(FinancialRow, { label: "Payment due", value: shortDate(invoice.paymentDueDate), accent: true }),
@@ -1457,22 +1604,47 @@ function DatabaseInvoices({ data, setSelectedClientId, setSelectedQuoteId, setAc
         h(FinancialRow, { label: "Outstanding", value: money(invoice.balanceDue), warning: Number(invoice.balanceDue) > 0 }),
         h(FinancialRow, { label: "Invoice total", value: money(invoice.jobTotal), total: true })
       ),
-      h(PaymentChaseButtons, { invoice, client, settings: data.settings }),
+      h("div", { className: "mt-4 grid gap-2 sm:grid-cols-3", role: "group", "aria-label": `Change status for ${invoice.invoiceReference}` },
+        [
+          { status: "Unpaid", label: "Mark Unpaid", colour: "#293E48" },
+          { status: "Paid", label: "Mark as Paid", colour: "#2F8F6B" },
+          { status: "Overdue", label: "Mark Overdue", colour: "#C95252" }
+        ].map((action) => h("button", {
+          key: action.status,
+          type: "button",
+          "aria-pressed": status === action.status,
+          onClick: () => updateInvoiceStatus(invoice, action.status),
+          className: classNames("rounded-full border px-3 py-2.5 text-xs transition", status === action.status ? "border-transparent text-white shadow-md" : "border-white/80 bg-white/42 text-slate-700 hover:bg-white/72"),
+          style: status === action.status ? { backgroundColor: action.colour } : undefined
+        }, action.label))
+      ),
+      Number(invoice.balanceDue ?? invoice.jobTotal ?? 0) > 0 && status !== "Paid" && h(PaymentChaseButtons, { invoice, client, settings: data.settings }),
       h("button", { type: "button", onClick: () => { setSelectedClientId(invoice.clientId); setSelectedQuoteId(invoice.quoteId); setActiveTab("Quoter"); setJobTab("Invoice Generator"); }, className: "mt-3 w-full rounded-full bg-[#01717F] px-4 py-2 text-sm text-white" }, "Open Invoice")
+      )
     );
   }));
 }
 
-function DatabaseQuotes({ data, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab }) {
-  if (!data.quotes.length) return h(EmptyState, { title: "No quotes saved", body: "Saved quotes will appear here with their client, deposit and status." });
-  return h("div", { className: "grid gap-4 lg:grid-cols-2" }, data.quotes.map((quote) => {
+function DatabaseQuotes({ data, query, dateFilter, statusFilter, setSelectedClientId, setSelectedQuoteId, setActiveTab, setJobTab }) {
+  const [openQuoteId, setOpenQuoteId] = useState("");
+  const quotes = data.quotes.filter((quote) => {
     const client = data.clients.find((entry) => entry.clientId === quote.clientId);
-    const status = quote.quoteStatus === "Complete" ? "Converted to Job" : quote.quoteStatus;
+    const hay = `${quote.quoteReference} ${displayName(client)} ${client?.address || ""}`.toLowerCase();
+    return hay.includes(query.toLowerCase())
+      && (!dateFilter || quote.quoteDate === dateFilter || quote.proposedStartDate === dateFilter)
+      && (!statusFilter || normaliseRecordStatus(quote.quoteStatus) === statusFilter);
+  });
+  if (!quotes.length) return h(EmptyState, { title: "No quotes found", body: "Change the filters or save a quote to see it here." });
+  return h("div", { className: "grid gap-4 lg:grid-cols-2" }, quotes.map((quote) => {
+    const client = data.clients.find((entry) => entry.clientId === quote.clientId);
+    const status = normaliseRecordStatus(quote.quoteStatus);
+    const open = openQuoteId === quote.quoteId;
     return h("article", { key: quote.quoteId, className: "rounded-[28px] border border-white/70 bg-white/34 p-5" },
-      h("div", { className: "flex items-start justify-between gap-3" },
-        h("div", null, h("h3", { className: "text-lg text-slate-900" }, `${quote.quoteReference} · ${displayName(client)}`), h("p", { className: "mt-1 text-sm text-slate-500" }, client?.address || "Address not set")),
-        h("span", { className: "rounded-full bg-[#C88933] px-3 py-1 text-xs text-white" }, status)
+      h("button", { type: "button", "aria-expanded": open, onClick: () => setOpenQuoteId(open ? "" : quote.quoteId), className: "flex w-full items-start justify-between gap-3 text-left" },
+        h("span", null, h("span", { className: "block text-lg text-slate-900" }, `${quote.quoteReference} · ${displayName(client)}`), h("span", { className: "mt-1 block text-sm text-slate-500" }, client?.address || "Address not set")),
+        h("span", { className: "flex items-center gap-2" }, h(RecordStatusPill, { status }), h(ChevronDown, { size: 18, className: classNames("transition-transform", open ? "rotate-180" : "") }))
       ),
+      open && h("div", { className: "auty-expand-panel" },
       h("div", { className: "auty-financial-list mt-4" },
         h(FinancialRow, { label: "Quote date", value: shortDate(quote.quoteDate) }),
         h(FinancialRow, { label: "Proposed start", value: shortDate(quote.proposedStartDate), accent: true }),
@@ -1480,8 +1652,32 @@ function DatabaseQuotes({ data, setSelectedClientId, setSelectedQuoteId, setActi
         h(FinancialRow, { label: "Quote total", value: money(quote.totalAmount), total: true })
       ),
       h("button", { type: "button", onClick: () => { setSelectedClientId(quote.clientId); setSelectedQuoteId(quote.quoteId); setActiveTab("Quoter"); setJobTab("Job Overview"); }, className: "mt-4 w-full rounded-full bg-[#01717F] px-4 py-2 text-sm text-white" }, "Open Quote")
+      )
     );
   }));
+}
+
+function normaliseRecordStatus(status) {
+  if (status === "Invoice Due") return "Unpaid";
+  if (status === "Part Paid") return "Part-paid";
+  if (status === "Complete") return "Converted to Job";
+  return status || "Draft";
+}
+
+function RecordStatusPill({ status }) {
+  const colour = {
+    Paid: "#2F8F6B",
+    Accepted: "#2F8F6B",
+    "Converted to Job": "#01717F",
+    Overdue: "#C95252",
+    Declined: "#C95252",
+    "Part-paid": "#C88933",
+    Sent: "#C88933",
+    "Awaiting Approval": "#C88933",
+    Unpaid: "#293E48",
+    Draft: "#5E6F7B"
+  }[status] || "#008898";
+  return h("span", { className: "inline-flex max-w-[8.5rem] items-center rounded-full px-3 py-1 text-center text-[10px] leading-tight text-white shadow-sm", style: { backgroundColor: colour } }, status);
 }
 
 function CurrentJobPage(props) {
@@ -1631,7 +1827,8 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
       roomIds: Array.from(new Set([...(quote.roomIds || []), savedRoom.roomId])),
       wholeJobSpecifics: [quote.wholeJobSpecifics, savedRoom.generatedDescription].filter(Boolean).join("\n")
     };
-    saveQuoteTotals(updatedQuote);
+    const roomsWithSavedRoom = [...data.rooms.filter((room) => room.roomId !== savedRoom.roomId), savedRoom];
+    saveQuoteTotals(updatedQuote, roomsWithSavedRoom);
     setDraft(createRoomDraft(quote.quoteId));
     setNotice("Room completed and added to quote");
   };
@@ -1804,9 +2001,9 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
   );
 }
 
-function JobOverviewPage({ data, selectedClient, selectedQuote, upsert, removeItem, saveQuoteTotals, generatePdf, setNotice, setSelectedQuoteId, setJobTab }) {
+function JobOverviewPage({ data, selectedClient, selectedQuote, selectedQuoteId, upsert, removeItem, saveQuoteTotals, generatePdf, setNotice, setSelectedQuoteId, setJobTab }) {
   const [editingClient, setEditingClient] = useState(false);
-  if (!selectedQuote) return h(EmptyState, { title: "No current quote selected", body: "Start a quote in Room Quoter or pick a client with an existing job." });
+  if (!selectedQuoteId || !selectedQuote) return h(EmptyState, { title: "No current job selected", body: "Start a quote in Room Quoter or open a saved quote from the Clients tab." });
   const client = selectedClient || data.clients.find((entry) => entry.clientId === selectedQuote.clientId);
   const rooms = data.rooms.filter((room) => selectedQuote.roomIds.includes(room.roomId));
   const calc = calculateQuote(selectedQuote, data.rooms, data.settings);
@@ -1833,6 +2030,19 @@ function JobOverviewPage({ data, selectedClient, selectedQuote, upsert, removeIt
     setSelectedQuoteId("");
     setJobTab("Room Quoter");
     setNotice("Empty draft discarded");
+  };
+
+  const saveCurrentJobToQuoteBank = () => {
+    const saved = saveQuoteTotals(selectedQuote);
+    setNotice(`${saved.quoteReference} saved to Quotes Bank`);
+  };
+
+  const clearCurrentJob = () => {
+    const ok = window.confirm("Clear this job from the current workspace? The saved quote and client will remain in the Quotes Bank.");
+    if (!ok) return;
+    setSelectedQuoteId("");
+    setJobTab("Room Quoter");
+    setNotice("Current job cleared. The saved quote remains in Quotes Bank.");
   };
 
   return h("div", { className: "grid gap-5 xl:grid-cols-[1.15fr_0.85fr]" },
@@ -1897,6 +2107,10 @@ function JobOverviewPage({ data, selectedClient, selectedQuote, upsert, removeIt
         ),
         h("div", { className: "mt-4" }, h(ReminderComposer, { upsert, setNotice, clientId: client?.clientId, quoteId: selectedQuote.quoteId }))
       ),
+      h("div", { className: "grid gap-3 sm:grid-cols-2" },
+        h(ActionButton, { label: "Save Current Job to Quotes Bank", onClick: saveCurrentJobToQuoteBank, icon: Save, variant: "gold", className: "w-full" }),
+        h(ActionButton, { label: "Clear Current Job", onClick: clearCurrentJob, icon: X, variant: "soft", className: "w-full" })
+      ),
       selectedQuote.quoteStatus === "Draft" && !rooms.length && h(ActionButton, { label: "Discard Empty Draft", onClick: discardEmptyDraft, icon: Trash2, variant: "danger", className: "w-full" })
     ),
     h("aside", { className: "space-y-5" },
@@ -1925,20 +2139,32 @@ function JobOverviewPage({ data, selectedClient, selectedQuote, upsert, removeIt
   );
 }
 
-function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generatePdf, setNotice }) {
-  const [quoteId, setQuoteId] = useState(selectedQuote?.quoteId || data.quotes[0]?.quoteId || "");
-  useEffect(() => {
-    if (selectedQuote?.quoteId) setQuoteId(selectedQuote.quoteId);
-  }, [selectedQuote?.quoteId]);
-  const quote = data.quotes.find((entry) => entry.quoteId === quoteId) || selectedQuote || data.quotes[0];
-  const calc = quote ? calculateQuote(quote, data.rooms, data.settings) : null;
-  const client = data.clients.find((entry) => entry.clientId === quote?.clientId);
-  const existingInvoice = data.invoices.find((invoice) => invoice.quoteId === quote?.quoteId);
-  const relatedInvoices = data.invoices.filter((invoice) => invoice.clientId === quote?.clientId).sort((a, b) => b.invoiceDate.localeCompare(a.invoiceDate));
+function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuoteId, generatePdf, setNotice }) {
+  const initialQuote = data.quotes.find((entry) => entry.quoteId === selectedQuoteId);
+  const [clientId, setClientId] = useState(initialQuote?.clientId || "");
+  const [quoteId, setQuoteId] = useState(initialQuote?.quoteId || "");
   const [draftInvoice, setDraftInvoice] = useState(null);
+  const [openInvoiceId, setOpenInvoiceId] = useState("");
 
   useEffect(() => {
-    if (!quote || !calc) return;
+    const nextQuote = data.quotes.find((entry) => entry.quoteId === selectedQuoteId);
+    if (!nextQuote) return;
+    setClientId(nextQuote.clientId);
+    setQuoteId(nextQuote.quoteId);
+  }, [selectedQuoteId, data.quotes]);
+
+  const quoteChoices = data.quotes.filter((entry) => entry.clientId === clientId);
+  const quote = data.quotes.find((entry) => entry.quoteId === quoteId && entry.clientId === clientId);
+  const calc = quote ? calculateQuote(quote, data.rooms, data.settings) : null;
+  const client = data.clients.find((entry) => entry.clientId === clientId);
+  const existingInvoice = data.invoices.find((invoice) => invoice.quoteId === quote?.quoteId);
+  const relatedInvoices = data.invoices.filter((invoice) => invoice.clientId === clientId).sort((a, b) => (b.invoiceDate || "").localeCompare(a.invoiceDate || ""));
+
+  useEffect(() => {
+    if (!quote || !calc) {
+      setDraftInvoice(null);
+      return;
+    }
     setDraftInvoice(existingInvoice || {
       invoiceId: uid("invoice"),
       clientId: quote.clientId,
@@ -1953,10 +2179,22 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
     });
   }, [quote?.quoteId, existingInvoice?.invoiceId, calc?.total, calc?.depositAmount]);
 
-  if (!quote || !calc || !draftInvoice) return h(EmptyState, { title: "No quote ready for invoicing", body: "Create or select a quote first." });
+  const prepareInvoice = (invoiceDraft) => {
+    const jobTotal = Number(calc.total || 0);
+    const requestedStatus = normaliseRecordStatus(invoiceDraft.invoiceStatus);
+    const amountPaid = requestedStatus === "Paid" ? jobTotal : Math.max(0, Number(invoiceDraft.depositPaid || 0));
+    const balanceDue = Math.max(0, jobTotal - amountPaid);
+    return {
+      ...invoiceDraft,
+      jobTotal,
+      depositPaid: amountPaid,
+      balanceDue,
+      invoiceStatus: balanceDue === 0 ? "Paid" : requestedStatus === "Paid" ? "Part-paid" : requestedStatus
+    };
+  };
 
   const saveAndGenerate = async () => {
-    const invoice = { ...draftInvoice, jobTotal: calc.total, balanceDue: Math.max(0, calc.total - Number(draftInvoice.depositPaid)) };
+    const invoice = prepareInvoice(draftInvoice);
     const errors = validateInvoice(invoice, quote, data.rooms, data.settings);
     if (errors.length) {
       setNotice(formatErrors(errors));
@@ -1967,7 +2205,7 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
   };
 
   const saveInvoiceChanges = () => {
-    const invoice = { ...draftInvoice, jobTotal: calc.total, balanceDue: Math.max(0, calc.total - Number(draftInvoice.depositPaid)) };
+    const invoice = prepareInvoice(draftInvoice);
     const errors = validateInvoice(invoice, quote, data.rooms, data.settings);
     if (errors.length) {
       setNotice(formatErrors(errors));
@@ -1998,8 +2236,14 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
   };
 
   const applyInvoiceStatus = (status, invoice = draftInvoice) => {
+    if (!invoice || !calc) return;
     const jobTotal = Number(invoice.jobTotal ?? calc.total);
-    const amountPaid = status === "Paid" ? jobTotal : Number(invoice.depositPaid || 0);
+    const previousStatus = normaliseRecordStatus(invoice.invoiceStatus);
+    const amountPaid = status === "Paid"
+      ? jobTotal
+      : status === "Unpaid" && previousStatus === "Paid"
+        ? 0
+        : Number(invoice.depositPaid || 0);
     const updated = {
       ...invoice,
       invoiceStatus: status,
@@ -2011,12 +2255,43 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
     setNotice(`Invoice marked ${status.toLowerCase()}`);
   };
 
-  return h("div", { className: "grid gap-5 xl:grid-cols-[1.05fr_0.95fr]" },
+  const picker = h("section", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
+    h("p", { className: "text-[11px] font-bold uppercase tracking-[0.24em] text-auty-gold" }, "Invoice Generator"),
+    h("h2", { className: "mt-1 text-2xl text-slate-900" }, "Choose a client to begin"),
+    h("p", { className: "mt-2 text-sm text-slate-500" }, "Invoice details remain blank until a client and one of their quotes are selected."),
+    h("div", { className: "mt-4 grid gap-4 lg:grid-cols-2" },
+      h(Field, {
+        label: "Client To Invoice",
+        value: clientId,
+        options: [{ value: "", label: "Choose client" }, ...data.clients.map((entry) => ({ value: entry.clientId, label: databaseName(entry) }))],
+        onChange: (value) => { setClientId(value); setQuoteId(""); setDraftInvoice(null); }
+      }),
+      clientId && h(Field, {
+        label: "Quote To Invoice",
+        value: quoteId,
+        options: [{ value: "", label: "Choose quote" }, ...quoteChoices.map((entry) => ({ value: entry.quoteId, label: entry.quoteReference }))],
+        onChange: setQuoteId
+      })
+    )
+  );
+
+  if (!clientId || !quote || !calc || !draftInvoice) {
+    return h("div", { className: "space-y-5" },
+      picker,
+      h(EmptyState, {
+        title: !clientId ? "No client selected" : quoteChoices.length ? "Choose a quote to invoice" : "No quotes available for this client",
+        body: !clientId ? "Select a client above to load their saved quotes." : quoteChoices.length ? "Pick the quote that should be used for this invoice." : "Create and save a quote for this client before generating an invoice."
+      })
+    );
+  }
+
+  return h("div", { className: "space-y-5" },
+    picker,
+    h("div", { className: "grid gap-5 xl:grid-cols-[1.05fr_0.95fr]" },
     h("section", { "data-invoice-generator-form": "true", className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
       h("p", { className: "text-[11px] font-bold uppercase tracking-[0.24em] text-auty-gold" }, "Invoice Generator"),
       h("h2", { className: "text-2xl font-black text-slate-900" }, "Final invoice layout"),
       h("div", { className: "mt-4 grid gap-4 lg:grid-cols-2" },
-        h(Field, { label: "Quote To Invoice", value: quote.quoteId, options: data.quotes.map((entry) => ({ value: entry.quoteId, label: `${entry.quoteReference} - ${displayName(data.clients.find((clientEntry) => clientEntry.clientId === entry.clientId))}` })), onChange: setQuoteId }),
         h(Field, { label: "Invoice Reference", value: draftInvoice.invoiceReference, onChange: (value) => setDraftInvoice({ ...draftInvoice, invoiceReference: value }) }),
         h(Field, { label: "Invoice Date", value: draftInvoice.invoiceDate, type: "date", onChange: (value) => setDraftInvoice({ ...draftInvoice, invoiceDate: value }) }),
         h(Field, { label: "Payment Due Date", value: draftInvoice.paymentDueDate, type: "date", onChange: (value) => setDraftInvoice({ ...draftInvoice, paymentDueDate: value }) }),
@@ -2056,23 +2331,37 @@ function InvoiceGeneratorPage({ data, upsert, removeItem, selectedQuote, generat
         relatedInvoices.length ? h("div", { className: "mt-4 space-y-3" },
           relatedInvoices.map((invoice) => h("div", { key: invoice.invoiceId, "data-invoice-id": invoice.invoiceId, className: "rounded-[22px] bg-white/42 p-4 shadow-sm" },
             h("div", { className: "flex items-start justify-between gap-3" },
-              h("div", null,
-                h("p", { className: "font-black text-slate-900" }, `${invoice.invoiceReference} · ${displayName(client)}`),
-                h("p", { className: "text-sm text-slate-500" }, `${shortDate(invoice.invoiceDate)} | ${invoice.invoiceStatus === "Invoice Due" ? "Unpaid" : invoice.invoiceStatus}`),
-                h("p", { className: "mt-1 text-sm text-slate-600" }, `${money(invoice.balanceDue ?? invoice.jobTotal)} outstanding`)
+              h("button", {
+                type: "button",
+                "aria-label": `${openInvoiceId === invoice.invoiceId ? "Close" : "Open"} invoice ${invoice.invoiceReference} details`,
+                "aria-expanded": openInvoiceId === invoice.invoiceId,
+                onClick: () => setOpenInvoiceId((current) => current === invoice.invoiceId ? "" : invoice.invoiceId),
+                className: "flex min-w-0 grow items-start justify-between gap-3 text-left"
+              },
+                h("span", { className: "min-w-0" },
+                  h("span", { className: "block truncate text-slate-900" }, `${invoice.invoiceReference} · ${displayName(client)}`),
+                  h("span", { className: "mt-1 block text-sm text-slate-500" }, `${shortDate(invoice.invoiceDate)} · ${money(invoice.balanceDue ?? invoice.jobTotal)} outstanding`)
+                ),
+                h("span", { className: "flex shrink-0 items-center gap-2" },
+                  h(RecordStatusPill, { status: normaliseRecordStatus(invoice.invoiceStatus) }),
+                  h(ChevronDown, { size: 18, className: classNames("transition-transform", openInvoiceId === invoice.invoiceId ? "rotate-180" : "") })
+                )
               ),
               h(IconButton, { label: `Delete invoice ${invoice.invoiceReference}`, icon: Trash2, onClick: () => deleteInvoice(invoice) })
             ),
-            h(InvoiceStatusControls, { status: invoice.invoiceStatus, onChange: (status) => applyInvoiceStatus(status, invoice) }),
-            h(PaymentChaseButtons, { invoice, client, settings: data.settings })
+            openInvoiceId === invoice.invoiceId && h("div", { className: "auty-expand-panel" },
+              h(InvoiceStatusControls, { status: invoice.invoiceStatus, onChange: (status) => applyInvoiceStatus(status, invoice) }),
+              Number(invoice.balanceDue ?? invoice.jobTotal ?? 0) > 0 && normaliseRecordStatus(invoice.invoiceStatus) !== "Paid" && h(PaymentChaseButtons, { invoice, client, settings: data.settings })
+            )
           ))
         ) : h(EmptyState, { title: "No saved invoices yet", body: "Generate one and it will appear here." })
       )
     )
+    )
   );
 }
 
-function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice, workspaceActions, isCloud }) {
+function PhotosPage({ data, upsert, removeItem, selectedClient, selectedQuote, setNotice, workspaceActions, isCloud }) {
   const [form, setForm] = useState({ clientId: selectedClient?.clientId || "", quoteId: selectedQuote?.quoteId || "", roomId: "", photoType: "Before", caption: "" });
   useEffect(() => {
     setForm((current) => ({
@@ -2130,7 +2419,16 @@ function PhotosPage({ data, upsert, selectedClient, selectedQuote, setNotice, wo
           h("div", { className: "p-4" },
             h("span", { className: classNames("inline-flex rounded-full px-3 py-1 text-[11px] font-bold ring-1", calendarTint(photo.photoType === "Before" ? "Quote Visit" : photo.photoType === "After" ? "Booked Job" : "Potential Job (Unconfirmed)")) }, photo.photoType),
             h("p", { className: "mt-3 font-black text-slate-900" }, photo.caption || "No caption"),
-            h("p", { className: "mt-1 text-sm text-slate-500" }, `${displayName(client)} | ${room?.roomName || "Room"} | ${shortDate(photo.uploadedDate)}`)
+            h("p", { className: "mt-1 text-sm text-slate-500" }, `${displayName(client)} | ${room?.roomName || "Room"} | ${shortDate(photo.uploadedDate)}`),
+            h("button", {
+              type: "button",
+              onClick: () => {
+                if (!window.confirm("Remove this photo?")) return;
+                removeItem("photos", "photoId", photo.photoId);
+                setNotice("Photo removed");
+              },
+              className: "mt-3 inline-flex items-center gap-2 rounded-full bg-[#C95252] px-3 py-2 text-xs text-white"
+            }, h(Trash2, { size: 15 }), "Remove photo")
           )
         );
       })
@@ -2189,12 +2487,18 @@ function SettingsPage({ data, update, onBack, backLabel, setNotice, installToHom
         )
       ),
       h("div", { className: "mt-5 flex flex-wrap gap-3" },
+        h(ActionButton, { label: "Save Settings", onClick: () => setNotice(isCloud ? "Settings saved to the cloud" : "Settings saved on this device"), icon: Save, variant: "gold" }),
         h(ActionButton, { label: "Add App To Home Screen", onClick: installToHomeScreen, icon: Home, variant: "soft" }),
         h(ActionButton, { label: "Export JSON Backup", onClick: exportBackup, icon: Download }),
         h("label", { className: "inline-flex min-h-[52px] cursor-pointer items-center gap-2 rounded-[20px] bg-slate-900 px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-slate-800" },
           h(Upload, { size: 18 }),
           "Import JSON Backup",
-          h("input", { type: "file", accept: "application/json", className: "hidden", onChange: (event) => importBackupFile(event.target.files?.[0]) })
+          h("input", { type: "file", accept: "application/json", className: "hidden", onChange: (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            if (window.confirm("Import this backup and replace the current workspace data?")) importBackupFile(file);
+            event.target.value = "";
+          } })
         ),
         isCloud && h(ActionButton, { label: "Sign Out", onClick: signOutUser, icon: LogOut, variant: "danger" })
       )
