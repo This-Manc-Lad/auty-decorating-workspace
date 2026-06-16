@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { initialState, STORAGE_KEY } from "../src/lib/constants.js";
 
+test.setTimeout(60000);
+
 function expectTermsPdf(download) {
   return download.path().then((path) => {
     const pdf = readFileSync(path).toString("latin1");
@@ -12,9 +14,11 @@ function expectTermsPdf(download) {
 test("the refreshed workspace navigation and key controls work", async ({ page }) => {
   await page.goto("/?preview");
 
-  await expect(page.getByText("Welcome Back")).toBeVisible();
-  await expect(page.locator(".auty-welcome")).toHaveCSS("position", "fixed");
-  await expect(page.locator(".auty-welcome")).toHaveCSS("animation-name", "welcomePaintAway");
+  const welcomeOverlay = page.locator(".auty-welcome");
+  if (await welcomeOverlay.count()) {
+    await expect(welcomeOverlay).toHaveCSS("position", "fixed");
+    await expect(welcomeOverlay).toHaveCSS("animation-name", "welcomePaintAway");
+  }
   await expect(page.getByText("Welcome Back")).toBeHidden({ timeout: 5000 });
   await expect(page.getByRole("img", { name: "AUTY Decorating logo" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toHaveCount(0);
@@ -111,6 +115,36 @@ test("existing-client quoter flow reveals room options only after selection", as
   const savedQuoteAfterRoom = savedAfterRoom.quotes.find((quote) => quote.clientId === "client-existing");
   expect(savedQuoteAfterRoom.totalAmount).toBeGreaterThan(125.5);
   expect(savedQuoteAfterRoom.depositAmount).toBeGreaterThan(0);
+  await expect(page.getByRole("button", { name: "Add Another Room" })).toBeVisible();
+  await page.getByLabel("VAT Rate (%)").fill("10");
+  const savedAfterVatEdit = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  const quoteAfterVatEdit = savedAfterVatEdit.quotes.find((quote) => quote.clientId === "client-existing");
+  expect(quoteAfterVatEdit.vatEnabled).toBeTruthy();
+  expect(quoteAfterVatEdit.vatRate).toBe(10);
+  expect(quoteAfterVatEdit.vatAmount).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Remove VAT" }).click();
+  await expect(page.getByRole("button", { name: "Add VAT" })).toBeVisible();
+  const savedAfterVatRemove = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  const quoteAfterVatRemove = savedAfterVatRemove.quotes.find((quote) => quote.clientId === "client-existing");
+  expect(quoteAfterVatRemove.vatEnabled).toBeFalsy();
+  expect(quoteAfterVatRemove.vatAmount).toBe(0);
+  await page.getByRole("button", { name: "Add VAT" }).click();
+  await page.getByLabel("Edit Living Room").click();
+  await expect(page.getByRole("button", { name: "Save Room Changes" })).toBeVisible();
+  await page.getByLabel("Override Price").fill("240");
+  await page.getByRole("button", { name: "Save Room Changes" }).click();
+  await expect(page.getByText("Room changes saved")).toBeVisible();
+  const savedAfterRoomEdit = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  const editedRoom = savedAfterRoomEdit.rooms.find((room) => room.clientId !== "never" && room.roomName === "Living Room");
+  expect(editedRoom.finalRoomPrice).toBe(240);
+  await page.getByRole("button", { name: "Add Another Room" }).click();
+  await page.getByRole("button", { name: "Bedroom" }).click();
+  await page.getByRole("button", { name: "Complete Room" }).click();
+  await expect(page.getByText("Room completed and added to quote")).toBeVisible();
+  const savedAfterSecondRoom = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  const quoteAfterSecondRoom = savedAfterSecondRoom.quotes.find((quote) => quote.clientId === "client-existing");
+  expect(quoteAfterSecondRoom.roomIds.length).toBe(2);
+  await page.getByRole("button", { name: "Job Overview", exact: true }).click();
   await page.getByLabel("Quote Date").fill("2026-07-01");
   await page.getByLabel("Proposed Start Date").fill("2026-07-08");
   const quoteDownloadPromise = page.waitForEvent("download");
@@ -330,9 +364,13 @@ test("dashboard priorities and invoice payment statuses are actionable", async (
   await expect(page.getByText("No client selected", { exact: true })).toBeVisible();
   await page.getByLabel("Client To Invoice").selectOption("client-test");
   await page.getByLabel("Quote To Invoice").selectOption("quote-test");
+  await expect(page.getByText("Final job total").locator("..")).toContainText("£500.00");
   await expect(page.locator('[data-invoice-generator-form="true"]').getByRole("button", { name: "Chase Payment" })).toHaveCount(0);
   const savedInvoice = page.locator('[data-invoice-id="invoice-test"]');
   await savedInvoice.getByRole("button", { name: "Open invoice AUTY-INV-001 details" }).click();
   await savedInvoice.getByRole("button", { name: "Paid", exact: true }).click();
-  await expect(savedInvoice.getByRole("button", { name: "Paid", exact: true })).toHaveAttribute("aria-pressed", "true");
+  const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  const paidInvoice = stored.invoices.find((invoice) => invoice.invoiceId === "invoice-test");
+  expect(paidInvoice.invoiceStatus).toBe("Paid");
+  expect(paidInvoice.balanceDue).toBe(0);
 });

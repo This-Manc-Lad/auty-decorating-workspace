@@ -34,6 +34,7 @@ import {
   Cloud,
   Lock,
   LogOut,
+  Plus,
   ShieldCheck,
   ImagePlus
 } from "lucide-react";
@@ -284,6 +285,7 @@ function App() {
       vatAmount: 0,
       finalNotes: "",
       vatEnabled: data.settings.vatEnabled,
+      vatRate: data.settings.vatRate,
       discountType: "No Discount",
       discountPercent: 0,
       customDiscount: 0,
@@ -1682,6 +1684,8 @@ function RecordStatusPill({ status }) {
 
 function CurrentJobPage(props) {
   const { jobTab, setJobTab } = props;
+  const [roomEditRequest, setRoomEditRequest] = useState("");
+  const pageProps = { ...props, roomEditRequest, setRoomEditRequest };
   return h("div", { className: "space-y-5" },
     h("div", { className: "auty-job-tabs" },
         JOB_TABS.map((tab) => h("button", {
@@ -1693,23 +1697,51 @@ function CurrentJobPage(props) {
         }, tab))
     ),
     h("div", { key: jobTab, className: "auty-tab-stage" },
-      jobTab === "Room Quoter" && h(RoomQuoterPage, props),
-      jobTab === "Job Overview" && h(JobOverviewPage, props),
-      jobTab === "Invoice Generator" && h(InvoiceGeneratorPage, props),
-      jobTab === "Photos & Attachments" && h(PhotosPage, props)
+      jobTab === "Room Quoter" && h(RoomQuoterPage, pageProps),
+      jobTab === "Job Overview" && h(JobOverviewPage, pageProps),
+      jobTab === "Invoice Generator" && h(InvoiceGeneratorPage, pageProps),
+      jobTab === "Photos & Attachments" && h(PhotosPage, pageProps)
     )
   );
 }
 
-function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selectedQuote, upsert, removeItem, saveQuoteTotals, setNotice, setSelectedClientId, setSelectedQuoteId, setJobTab, workspaceActions, isCloud }) {
+function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selectedQuote, selectedQuoteId, upsert, removeItem, saveQuoteTotals, setNotice, setSelectedClientId, setSelectedQuoteId, setJobTab, workspaceActions, isCloud, roomEditRequest, setRoomEditRequest }) {
   const [draft, setDraft] = useState(createRoomDraft(selectedQuote?.quoteId || ""));
   const [existingClientId, setExistingClientId] = useState(selectedClient?.clientId || "");
   const [quoteFlow, setQuoteFlow] = useState("choose");
   const [newClientDraft, setNewClientDraft] = useState({ name: "", telephone: "", email: "", address: "", quoteDate: today() });
 
   useEffect(() => {
+    if (roomEditRequest) return;
     setDraft(createRoomDraft(selectedQuote?.quoteId || ""));
-  }, [selectedQuote?.quoteId]);
+  }, [selectedQuote?.quoteId, roomEditRequest]);
+
+  useEffect(() => {
+    if (!roomEditRequest || !selectedQuoteId || !selectedQuote) return;
+    if (roomEditRequest === "new") {
+      setDraft(createRoomDraft(selectedQuote.quoteId));
+      setQuoteFlow("ready");
+      setRoomEditRequest("");
+      return;
+    }
+    const room = data.rooms.find((entry) => entry.roomId === roomEditRequest && entry.quoteId === selectedQuote.quoteId);
+    if (!room) {
+      setNotice("That room could not be opened");
+      setRoomEditRequest("");
+      return;
+    }
+    const blankDraft = createRoomDraft(selectedQuote.quoteId);
+    setDraft({
+      ...blankDraft,
+      ...room,
+      quoteId: selectedQuote.quoteId,
+      otherFeatures: {
+        ...blankDraft.otherFeatures,
+        ...(room.otherFeatures || {})
+      }
+    });
+    setQuoteFlow("ready");
+  }, [roomEditRequest, selectedQuoteId, selectedQuote, data.rooms, setRoomEditRequest, setNotice]);
 
   useEffect(() => {
     if (selectedClient?.clientId) setExistingClientId(selectedClient.clientId);
@@ -1717,6 +1749,7 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
 
   const quote = selectedQuote;
   const client = selectedClient;
+  const editingRoom = roomEditRequest && roomEditRequest !== "new";
   const roomName = roomNameFromDraft(draft);
   const autoPrice = roomAutoPrice(draft, data.settings.dayRate || DAY_RATE);
   const finalRoomPrice = draft.overridePrice !== "" ? Number(draft.overridePrice) : autoPrice;
@@ -1764,11 +1797,13 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
   };
 
   const clearForm = () => {
+    setRoomEditRequest("");
     setDraft(createRoomDraft(quote?.quoteId || ""));
     setNotice("Room form cleared");
   };
 
   const startAnotherQuote = () => {
+    setRoomEditRequest("");
     if (quote?.quoteStatus === "Draft" && !(quote.roomIds || []).length) {
       removeItem("quotes", "quoteId", quote.quoteId);
       setSelectedQuoteId("");
@@ -1825,11 +1860,21 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
     const updatedQuote = {
       ...quote,
       roomIds: Array.from(new Set([...(quote.roomIds || []), savedRoom.roomId])),
-      wholeJobSpecifics: [quote.wholeJobSpecifics, savedRoom.generatedDescription].filter(Boolean).join("\n")
     };
     const roomsWithSavedRoom = [...data.rooms.filter((room) => room.roomId !== savedRoom.roomId), savedRoom];
+    updatedQuote.wholeJobSpecifics = roomsWithSavedRoom
+      .filter((room) => updatedQuote.roomIds.includes(room.roomId))
+      .map((room) => room.generatedDescription)
+      .filter(Boolean)
+      .join("\n");
     saveQuoteTotals(updatedQuote, roomsWithSavedRoom);
     setDraft(createRoomDraft(quote.quoteId));
+    if (editingRoom) {
+      setRoomEditRequest("");
+      setJobTab("Job Overview");
+      setNotice("Room changes saved");
+      return;
+    }
     setNotice("Room completed and added to quote");
   };
 
@@ -1973,7 +2018,8 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
           h("p", { className: "mt-2 text-sm text-white/72" }, `Auto price ${money(autoPrice)} | ${draft.estimatedDays} day(s) at ${money(data.settings.dayRate)} per day`)
         ),
         h("div", { className: "mt-4" }, h(Field, { label: "Override Price", value: draft.overridePrice, type: "number", prefix: "£", inverse: true, onChange: (value) => patch("overridePrice", value) })),
-        h(ActionButton, { label: "Complete Room", onClick: completeRoom, icon: Save, variant: "gold", className: "mt-5 w-full" })
+        h(ActionButton, { label: editingRoom ? "Save Room Changes" : "Complete Room", onClick: completeRoom, icon: Save, variant: "gold", className: "mt-5 w-full" }),
+        editingRoom && h(ActionButton, { label: "Cancel Editing", onClick: () => { setRoomEditRequest(""); setDraft(createRoomDraft(quote.quoteId)); setJobTab("Job Overview"); }, icon: X, variant: "soft", className: "mt-3 w-full" })
       ),
       h("div", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
         h("h3", { className: "text-lg font-black text-slate-900" }, "Rooms In Quote"),
@@ -2001,7 +2047,7 @@ function RoomQuoterPage({ data, createClient, createQuote, selectedClient, selec
   );
 }
 
-function JobOverviewPage({ data, selectedClient, selectedQuote, selectedQuoteId, upsert, removeItem, saveQuoteTotals, generatePdf, setNotice, setSelectedQuoteId, setJobTab }) {
+function JobOverviewPage({ data, selectedClient, selectedQuote, selectedQuoteId, upsert, removeItem, saveQuoteTotals, generatePdf, setNotice, setSelectedQuoteId, setJobTab, setRoomEditRequest }) {
   const [editingClient, setEditingClient] = useState(false);
   if (!selectedQuoteId || !selectedQuote) return h(EmptyState, { title: "No current job selected", body: "Start a quote in Room Quoter or open a saved quote from the Clients tab." });
   const client = selectedClient || data.clients.find((entry) => entry.clientId === selectedQuote.clientId);
@@ -2012,6 +2058,18 @@ function JobOverviewPage({ data, selectedClient, selectedQuote, selectedQuoteId,
   const updateClient = (patch) => {
     if (!client) return;
     upsert("clients", { ...client, ...patch, name: displayName({ ...client, ...patch }) }, "clientId");
+  };
+  const addRoomToQuote = () => {
+    setRoomEditRequest("new");
+    setJobTab("Room Quoter");
+    setNotice("Add another room to this quote");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const editRoom = (roomId) => {
+    setRoomEditRequest(roomId);
+    setJobTab("Room Quoter");
+    setNotice("Room opened for editing");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const deleteRoom = (roomId) => {
@@ -2074,7 +2132,10 @@ function JobOverviewPage({ data, selectedClient, selectedQuote, selectedQuoteId,
         )
       ),
       h("div", { className: "rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(24,34,48,0.08)] backdrop-blur" },
-        h("h3", { className: "text-lg font-black text-slate-900" }, "Rooms Overview"),
+        h("div", { className: "flex flex-wrap items-center justify-between gap-3" },
+          h("h3", { className: "text-lg font-black text-slate-900" }, "Rooms Overview"),
+          h(ActionButton, { label: "Add Another Room", icon: Plus, onClick: addRoomToQuote, variant: "soft", className: "min-h-[44px] px-4 py-2 text-xs" })
+        ),
         rooms.length ? h("div", { className: "mt-4 space-y-3" },
           rooms.map((room) => h("div", { key: room.roomId, className: "rounded-[24px] bg-[linear-gradient(135deg,#ffffff,#f6f8fb)] p-4 shadow-sm" },
             h("div", { className: "flex items-start justify-between gap-3" },
@@ -2085,6 +2146,7 @@ function JobOverviewPage({ data, selectedClient, selectedQuote, selectedQuoteId,
               ),
               h("div", { className: "flex items-center gap-2" },
                 h("strong", { className: "text-slate-900" }, money(room.finalRoomPrice)),
+                h(IconButton, { label: `Edit ${room.roomName || "room"}`, icon: SquarePen, onClick: () => editRoom(room.roomId) }),
                 h(IconButton, { label: `Delete ${room.roomName || "room"}`, icon: Trash2, onClick: () => deleteRoom(room.roomId) })
               )
             )
@@ -2099,7 +2161,20 @@ function JobOverviewPage({ data, selectedClient, selectedQuote, selectedQuoteId,
           h(Field, { label: "Quote Status", value: selectedQuote.quoteStatus, options: QUOTE_STATUSES, onChange: (value) => updateQuote({ quoteStatus: value }) }),
           h(Field, { label: "Overall Discount", value: selectedQuote.discountType, options: ["No Discount", "5%", "10%", "15%", "20%", "Custom"], onChange: (value) => updateQuote({ discountType: value, discountPercent: value === "Custom" || value === "No Discount" ? 0 : Number(value.replace("%", "")) }) }),
           selectedQuote.discountType === "Custom" && h(Field, { label: "Custom Discount", value: selectedQuote.customDiscount, type: "number", onChange: (value) => updateQuote({ customDiscount: value }) }),
-          h(Field, { label: "VAT", value: selectedQuote.vatEnabled ? "Enabled" : "Disabled", options: ["Enabled", "Disabled"], onChange: (value) => updateQuote({ vatEnabled: value === "Enabled" }) }),
+          h("div", { className: "rounded-[22px] border border-white/70 bg-white/26 p-4 lg:col-span-2" },
+            h("div", { className: "flex flex-wrap items-center justify-between gap-3" },
+              h("div", null,
+                h("p", { className: "text-sm text-slate-700" }, "VAT"),
+                h("p", { className: "mt-1 text-xs text-slate-500" }, selectedQuote.vatEnabled ? `${selectedQuote.vatRate ?? data.settings.vatRate}% added to this quote` : "No VAT added to this quote")
+              ),
+              selectedQuote.vatEnabled
+                ? h(ActionButton, { label: "Remove VAT", onClick: () => updateQuote({ vatEnabled: false, vatRate: 0 }), icon: Trash2, variant: "danger", className: "min-h-[44px] px-4 py-2 text-xs" })
+                : h(ActionButton, { label: "Add VAT", onClick: () => updateQuote({ vatEnabled: true, vatRate: data.settings.vatRate || 20 }), icon: Plus, variant: "soft", className: "min-h-[44px] px-4 py-2 text-xs" })
+            ),
+            selectedQuote.vatEnabled && h("div", { className: "mt-4 max-w-xs" },
+              h(Field, { label: "VAT Rate (%)", value: selectedQuote.vatRate ?? data.settings.vatRate, type: "number", onChange: (value) => updateQuote({ vatRate: value }) })
+            )
+          ),
           h(Field, { label: "Deposit Due Now", value: selectedQuote.depositType, options: ["No Deposit", "10%", "20%", "25%", "30%", "50%", "Fixed Amount", "Custom"], onChange: (value) => updateQuote({ depositType: value }) }),
           (selectedQuote.depositType === "Fixed Amount" || selectedQuote.depositType === "Custom") && h(Field, { label: "Deposit Amount", value: selectedQuote.depositCustom, type: "number", onChange: (value) => updateQuote({ depositCustom: value }) }),
           h("div", { className: "lg:col-span-2" }, h(Field, { label: "Whole Job Specifics", value: selectedQuote.wholeJobSpecifics, textarea: true, onChange: (value) => updateQuote({ wholeJobSpecifics: value }) })),
