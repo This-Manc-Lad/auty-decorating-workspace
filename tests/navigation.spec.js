@@ -2,10 +2,10 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { initialState, STORAGE_KEY } from "../src/lib/constants.js";
 
-function expectSinglePagePdf(download) {
+function expectTermsPdf(download) {
   return download.path().then((path) => {
     const pdf = readFileSync(path).toString("latin1");
-    expect((pdf.match(/\/Type\s*\/Page\b/g) || []).length).toBe(1);
+    expect((pdf.match(/\/Type\s*\/Page\b/g) || []).length).toBeGreaterThanOrEqual(2);
   });
 }
 
@@ -115,7 +115,7 @@ test("existing-client quoter flow reveals room options only after selection", as
   await page.getByLabel("Proposed Start Date").fill("2026-07-08");
   const quoteDownloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Generate Quote PDF" }).click();
-  await expectSinglePagePdf(await quoteDownloadPromise);
+  await expectTermsPdf(await quoteDownloadPromise);
 
   await page.getByRole("button", { name: "Invoice Generator" }).click();
   await page.getByLabel("Invoice Date").fill("2026-07-10");
@@ -123,7 +123,7 @@ test("existing-client quoter flow reveals room options only after selection", as
   await page.getByRole("button", { name: "Save Invoice Changes" }).click();
   const invoiceDownloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Generate Final Invoice" }).click();
-  await expectSinglePagePdf(await invoiceDownloadPromise);
+  await expectTermsPdf(await invoiceDownloadPromise);
 });
 
 test("calendar entries can be titled, edited, overridden, and deleted", async ({ page }) => {
