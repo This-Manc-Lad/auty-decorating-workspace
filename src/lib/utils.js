@@ -572,6 +572,26 @@ export function generatedRoomDescription(room) {
 
 export function calculateQuote(quote, rooms, settings) {
   const quoteRooms = rooms.filter((room) => quote?.roomIds?.includes(room.roomId));
+  if (!quoteRooms.length && number(quote?.totalAmount) > 0) {
+    const total = number(quote.totalAmount);
+    const vatAmount = number(quote.vatAmount);
+    const subtotalAfterDiscount = Math.max(0, total - vatAmount);
+    const depositAmount = number(quote.depositAmount);
+    return {
+      rooms: [],
+      labourSubtotal: subtotalAfterDiscount,
+      materialsTotal: 0,
+      subtotalBeforeDiscount: subtotalAfterDiscount,
+      discountAmount: 0,
+      subtotalAfterDiscount,
+      vatAmount,
+      total,
+      depositAmount: Math.min(total, depositAmount),
+      remainderAmount: Math.max(0, total - depositAmount),
+      duration: number(quote.estimatedDuration),
+      completionDate: quote.estimatedCompletionDate || addDays(quote?.proposedStartDate, number(quote.estimatedDuration))
+    };
+  }
   const labourSubtotal = quoteRooms.reduce((sum, room) => sum + number(room.finalRoomPrice), 0);
   const materialsTotal = quoteRooms.reduce((sum, room) => sum + (room.includeMaterials === "Yes" ? number(room.materialsCost) : 0), 0);
   const subtotalBeforeDiscount = labourSubtotal + materialsTotal;
@@ -579,7 +599,8 @@ export function calculateQuote(quote, rooms, settings) {
     ? number(quote.customDiscount)
     : subtotalBeforeDiscount * (number(quote?.discountPercent) / 100);
   const subtotalAfterDiscount = Math.max(0, subtotalBeforeDiscount - discountAmount);
-  const vatAmount = quote?.vatEnabled ? subtotalAfterDiscount * (number(settings.vatRate) / 100) : 0;
+  const vatRate = quote?.vatRate ?? settings.vatRate;
+  const vatAmount = quote?.vatEnabled ? subtotalAfterDiscount * (number(vatRate) / 100) : 0;
   const total = subtotalAfterDiscount + vatAmount;
   const depositAmount = quote?.depositType === "Fixed Amount" || quote?.depositType === "Custom"
     ? number(quote.depositCustom)
@@ -697,6 +718,7 @@ export function normaliseState(source = {}) {
     totalAmount: 0,
     vatAmount: 0,
     vatEnabled: merged.settings.vatEnabled,
+    vatRate: merged.settings.vatRate,
     discountType: "No Discount",
     discountPercent: 0,
     customDiscount: 0,
