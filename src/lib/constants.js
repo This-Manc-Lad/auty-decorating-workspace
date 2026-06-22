@@ -13,6 +13,20 @@ export const QUOTE_STATUSES = ["Draft", "Sent", "Awaiting Approval", "Accepted",
 export const CALENDAR_TYPES = ["Personal Time", "Potential Job (Unconfirmed)", "Other Work", "Booked Job", "Quote Visit", "Invoice Due", "Reminder", "Other"];
 export const PHOTO_TYPES = ["Before", "During", "After", "Damage", "Materials", "Other"];
 
+export const CLIENT_QUOTE_REQUEST_ROOMS = [
+  "Living Room",
+  "Dining Room",
+  "Kitchen",
+  "Hall / Stairs / Landing",
+  "Bathroom",
+  "Bedroom",
+  "Office / Study",
+  "Utility Room",
+  "Exterior",
+  "Doors / Woodwork",
+  "Other"
+];
+
 export const ROOM_PRESETS = [
   { key: "Living Room", label: "Living", icon: "Sofa" },
   { key: "Dining Room", label: "Dining", icon: "Utensils" },
